@@ -1,1 +1,52 @@
-/.idea
+# Binaries and temp files
+/tmp
+/tmp/*
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Vendor & cache
+/vendor/
+/dist/
+/bin/
+/build/
+/.cache/
+*.log
+
+# Go build and mod cache
+go.sum
+*.coverprofile
+*.test
+
+# Air temp dir
+air.log
+build.log
+tmp/
+.air
+
+# Environment variables
+.env
+.env.*
+
+# IDE settings
+.idea/
+*.iml
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# Git generated
+*.orig
+
+# Ignore by structure
+/storage/
+*.sqlite3
+*.db
+*.sqlite
