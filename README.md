@@ -43,7 +43,7 @@ cd housing-survey-api
 Copy the example env file and modify as needed:
 
 ```bash
-cp .env.example .env
+cp .example.env .env
 ```
 
 Sample `.env` values:

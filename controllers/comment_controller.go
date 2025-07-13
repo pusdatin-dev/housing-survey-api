@@ -5,6 +5,7 @@ import (
 	"housing-survey-api/models"
 	"housing-survey-api/services"
 	"housing-survey-api/utils"
+	"os"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -14,17 +15,20 @@ type CommentController struct {
 }
 
 func (c *CommentController) GetComments(ctx *fiber.Ctx) error {
-	// Logic to get all comments
-	return ctx.JSON(fiber.Map{"message": "Get all comments"})
+	return utils.ToFiberJSON(ctx, c.Comment.GetAllComments(ctx))
 }
 
 func (c *CommentController) GetCommentByID(ctx *fiber.Ctx) error {
-	// Logic to get a comment by ID
-	id := ctx.Params("id")
-	return ctx.JSON(fiber.Map{"message": "Get comment by ID", "id": id})
+	return utils.ToFiberJSON(ctx, c.Comment.GetCommentByID(ctx))
 }
 
 func (c *CommentController) CreatePublicComment(ctx *fiber.Ctx) error {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Fprintf(os.Stderr, "Panic in CreatePublicComment: %v\n", r)
+		}
+	}()
+
 	fmt.Println("Create public comment")
 	var input models.CommentInput
 	if err := ctx.BodyParser(&input); err != nil {
@@ -32,7 +36,7 @@ func (c *CommentController) CreatePublicComment(ctx *fiber.Ctx) error {
 		return utils.ToFiberBadRequest(ctx, "Invalid input format")
 	}
 
-	input.Actor = utils.GetActorEmailOrIP(ctx)
+	input.Actor = utils.GetActor(ctx)
 	res := c.Comment.CreatePublicComment(ctx, input)
 	fmt.Println("Success creating public comment")
 	return utils.ToFiberJSON(ctx, res)

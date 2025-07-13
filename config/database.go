@@ -2,9 +2,8 @@ package config
 
 import (
 	"fmt"
-	"log"
-
 	"housing-survey-api/models"
+	"log"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -30,7 +29,7 @@ func InitDB(cfg *Config) *gorm.DB {
 	if err := database.Exec(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`).Error; err != nil {
 		log.Fatalf("Failed to enable uuid-ossp extension: %v", err)
 	}
-	
+
 	// Auto-migrate models
 	err = database.AutoMigrate(
 		&models.Role{},

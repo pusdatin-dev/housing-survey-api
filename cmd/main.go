@@ -2,16 +2,14 @@ package main
 
 import (
 	"fmt"
-	"log"
-	
 	"housing-survey-api/config"
 	"housing-survey-api/controllers"
 	"housing-survey-api/internal/context"
 	"housing-survey-api/routes"
 	"housing-survey-api/seed"
+	"log"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/recover"
 )
 
 func main() {
@@ -31,11 +29,11 @@ func main() {
 	// Init services
 	ctrl := controllers.InitControllers(appCtx)
 	app := fiber.New()
-	app.Use(recover.New())
+	//app.Use(recover)
 
 	routes.SetupRoutes(app, ctrl)
 	for _, route := range app.GetRoutes() {
-		fmt.Printf("Route registered: %s %s\n", route.Method, route.Path)
+		fmt.Printf("Route: %-7s %-31s | Handlers: %d\n", route.Method, route.Path, len(route.Handlers))
 	}
 	log.Fatal(app.Listen(":8080"))
 }

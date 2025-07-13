@@ -26,6 +26,36 @@ type Comment struct {
 	DeletedAt gorm.DeletedAt `gorm:"index"`
 }
 
+type CommentResponse struct {
+	ID        string         `json:"id"`
+	SurveyID  string         `json:"survey_id"`
+	Name      string         `json:"name"`
+	Detail    string         `json:"detail"`
+	Images    pq.StringArray `json:"images"`
+	Address   string         `json:"address"`
+	CreatedBy string         `json:"created_by"`
+}
+
+func (c *Comment) ToResponse() CommentResponse {
+	return CommentResponse{
+		ID:        c.ID.String(),
+		SurveyID:  c.SurveyID.String(),
+		Name:      c.Name,
+		Detail:    c.Detail,
+		Images:    c.Images,
+		Address:   c.Survey.Address,
+		CreatedBy: c.CreatedBy,
+	}
+}
+
+func ToCommentResponses(comments []Comment) []CommentResponse {
+	responses := make([]CommentResponse, len(comments))
+	for i, comment := range comments {
+		responses[i] = comment.ToResponse()
+	}
+	return responses
+}
+
 type CommentInput struct {
 	SurveyID uuid.UUID `json:"survey_id"`
 	Name     string    `json:"name"`
@@ -36,9 +66,11 @@ type CommentInput struct {
 
 func (i CommentInput) ToComment() Comment {
 	return Comment{
-		SurveyID: i.SurveyID,
-		Name:     i.Name,
-		Detail:   i.Detail,
-		Images:   i.Images,
+		SurveyID:  i.SurveyID,
+		Name:      i.Name,
+		Detail:    i.Detail,
+		Images:    i.Images,
+		CreatedBy: i.Actor,
+		UpdatedBy: i.Actor,
 	}
 }

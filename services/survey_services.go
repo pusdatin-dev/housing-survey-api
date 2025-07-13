@@ -2,11 +2,13 @@ package services
 
 import (
 	"errors"
-	"net/http"
-
+	"fmt"
 	"housing-survey-api/config"
 	"housing-survey-api/internal/context"
 	"housing-survey-api/models"
+	"housing-survey-api/utils"
+	"strconv"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
@@ -33,104 +35,179 @@ func NewSurveyService(ctx *context.AppContext) SurveyService {
 	}
 }
 
-func (s surveyService) GetAllSurveys(ctx *fiber.Ctx) (res models.ServiceResponse) {
+func (s surveyService) GetAllSurveys(ctx *fiber.Ctx) models.ServiceResponse {
 	var surveys []models.Survey
-	res.Status = true
-	if err := s.Db.Order("created_at desc").Limit(100).Find(&surveys).Error; err != nil {
-		res.Code = http.StatusInternalServerError
-		res.Message = "Failed to retrieve surveys"
-		return
+	db := s.Db.Model(&models.Survey{}).Where("deleted_at IS NULL")
+
+	// Filtering
+	if address := ctx.Query("address"); address != "" {
+		db = db.Where("address LIKE ?", "%"+address+"%")
 	}
-	res.Code = http.StatusOK
-	res.Message = "Surveys retrieved successfully"
-	res.Data = surveys
-	return
+	if userId := ctx.Query("user_id"); userId != "" {
+		if _, err := uuid.Parse(userId); err != nil {
+			return models.BadRequestResponse("Invalid user ID format")
+		}
+		db = db.Where("user_id = ?", userId)
+	}
+	if types := ctx.Query("types"); types != "" {
+		// Assuming types is a comma-separated list of survey types
+		typeList := utils.SplitAndTrim(types, ",")
+		if len(typeList) > 0 {
+			db = db.Where("type IN ?", typeList)
+		}
+	}
+	if provinceIDs := ctx.Query("province_ids"); provinceIDs != "" {
+		// Assuming province_ids is a comma-separated list of province IDs
+		provinceIDList := utils.SplitAndTrim(provinceIDs, ",")
+		if len(provinceIDList) > 0 {
+			db = db.Where("province_id IN ?", provinceIDList)
+		}
+	}
+	if districtIDs := ctx.Query("district_ids"); districtIDs != "" {
+		// Assuming district_ids is a comma-separated list of district IDs
+		districtIDList := utils.SplitAndTrim(districtIDs, ",")
+		if len(districtIDList) > 0 {
+			db = db.Where("district_id IN ?", districtIDList)
+		}
+	}
+	if subdistrictIDs := ctx.Query("subdistrict_ids"); subdistrictIDs != "" {
+		// Assuming subdistrict_ids is a comma-separated list of subdistrict IDs
+		subdistrictIDList := utils.SplitAndTrim(subdistrictIDs, ",")
+		if len(subdistrictIDList) > 0 {
+			db = db.Where("subdistrict_id IN ?", subdistrictIDList)
+		}
+	}
+	if villageIDs := ctx.Query("village_ids"); villageIDs != "" {
+		// Assuming village_ids is a comma-separated list of village IDs
+		villageIDList := utils.SplitAndTrim(villageIDs, ",")
+		if len(villageIDList) > 0 {
+			db = db.Where("village_id IN ?", villageIDList)
+		}
+	}
+
+	// Pagination
+	page, err := strconv.Atoi(ctx.Query("page", "1"))
+	if err != nil || page < 1 {
+		page = 1
+	}
+	limit, err := strconv.Atoi(ctx.Query("limit", "10"))
+	if err != nil || limit < 1 {
+		limit = 10
+	}
+	offset := (page - 1) * limit
+
+	// Count total results
+	var total int64
+	if err := db.Count(&total).Error; err != nil {
+		return models.InternalServerErrorResponse("Failed to count comments")
+	}
+
+	if err := s.Db.Preload("User").Limit(limit).Offset(offset).Order("created_at desc").Find(&surveys).Error; err != nil {
+		return models.InternalServerErrorResponse("Failed to retrieve surveys")
+	}
+	// Return with metadata
+	return models.OkResponse(fiber.StatusOK, "Survey retrieved successfully", fiber.Map{
+		"data":       models.ToSurveyResponse(surveys),
+		"total":      total,
+		"page":       page,
+		"limit":      limit,
+		"totalPages": int((total + int64(limit) - 1) / int64(limit)), // ceiling division
+	})
 }
 
-func (s surveyService) GetSurveyDetail(ctx *fiber.Ctx, id string) (res models.ServiceResponse) {
-	res.Status = true
+func (s surveyService) GetSurveyDetail(ctx *fiber.Ctx, id string) models.ServiceResponse {
 	var survey models.Survey
-	if err := s.Db.Where("id = ?", id).First(&survey).Error; err != nil {
-		res.Code = http.StatusInternalServerError
-		res.Message = "Failed to retrieve survey"
-		return
+	if err := s.Db.Where("id = ? AND deleted_at IS NULL", id).First(&survey).Error; err != nil {
+		return models.InternalServerErrorResponse("Failed to retrieve survey")
 	}
 	if survey.ID == uuid.Nil {
-		res.Code = http.StatusNotFound
-		res.Message = "Survey not found"
-		return
+		return models.NotFoundResponse("Survey not found")
 	}
-	res.Code = http.StatusOK
-	res.Message = "Survey retrieved successfully"
-	res.Data = survey
-	return
+	return models.OkResponse(fiber.StatusOK, "Survey retrieved successfully", survey.ToResponse())
 }
 
-func (s surveyService) CreateSurvey(ctx *fiber.Ctx, survey models.SurveyInput) (res models.ServiceResponse) {
-	// Extract role from Fiber context
-	role, ok := ctx.Locals("role").(string)
-	if !ok || role != "Surveyor" {
-		res.Code = http.StatusForbidden
-		res.Message = "Role not authorized to create survey"
-		return
+func (s surveyService) CreateSurvey(ctx *fiber.Ctx, input models.SurveyInput) models.ServiceResponse {
+	//enforcing role surveyor only will be in middleware
+	// Convert input to model
+	if err := input.Validate(); err != nil {
+		return models.BadRequestResponse(err.Error())
+	}
+	survey := input.ToSurvey()
+	survey.ID = uuid.New() // Generate a new UUID for the survey
+
+	userID, err := utils.GetUserIDFromContext(ctx)
+	if err != nil {
+		return models.InternalServerErrorResponse("Cannot find UserID in token")
 	}
 
-	// Convert input to model
-	newSurvey := survey.ToSurvey()
-	newSurvey.ID = uuid.New() // Generate a new UUID for the survey
+	if userID != survey.UserID.String() {
+		return models.BadRequestResponse("Cannot create survey for another user")
+	}
 
 	// Insert into DB
-	if err := s.Db.Create(&newSurvey).Error; err != nil {
-		res.Code = http.StatusInternalServerError
-		res.Message = "Failed to create survey"
-		return
+	if err := s.Db.Create(&survey).Error; err != nil {
+		return models.InternalServerErrorResponse("Failed to create survey")
 	}
 
-	res.Status = true
-	res.Code = http.StatusCreated
-	res.Message = "Survey created successfully"
-	res.Data = newSurvey
-	return
+	return models.OkResponse(fiber.StatusCreated, "Survey created successfully", survey.ToResponse())
 }
 
-func (s surveyService) UpdateSurvey(ctx *fiber.Ctx, survey models.SurveyInput) (res models.ServiceResponse) {
-	// Extract role from Fiber context
-	role, ok := ctx.Locals("role").(string)
-	if !ok || role != "Surveyor" {
-		res.Code = http.StatusForbidden
-		res.Message = "Role not authorized to create survey"
-		return
-	}
-
-	// Convert input to model
-	newSurvey := survey.ToSurvey()
+func (s surveyService) UpdateSurvey(ctx *fiber.Ctx, survey models.SurveyInput) models.ServiceResponse {
+	//enforcing role surveyor only will be in middleware
+	//newSurvey := survey.ToSurvey()
 	oldSurvey := models.Survey{}
-	if err := s.Db.Where("id = ?", survey.ID).First(&oldSurvey).Error; err != nil {
+
+	userID, err := utils.GetUserIDFromContext(ctx)
+	if err != nil {
+		return models.InternalServerErrorResponse("Cannot find UserID in token")
+	}
+
+	if userID != survey.UserID.String() {
+		return models.BadRequestResponse("Cannot update survey for another user")
+	}
+
+	if err := s.Db.Where("id = ? AND deleted_at IS NULL", survey.ID).First(&oldSurvey).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			res.Code = http.StatusNotFound
-			res.Message = "Survey not found"
-			return
+			return models.NotFoundResponse("Survey not found")
 		}
-		res.Code = http.StatusInternalServerError
-		res.Message = "Failed to retrieve survey for update"
-		return
+		return models.InternalServerErrorResponse("Failed to retrieve survey for update")
 	}
 
 	// Insert into DB
-	if err := s.Db.Create(&newSurvey).Error; err != nil {
-		res.Code = http.StatusInternalServerError
-		res.Message = "Failed to create survey"
-		return
+	oldSurvey.UpdateFromInput(survey)
+	if err := s.Db.Save(&oldSurvey).Error; err != nil {
+		return models.InternalServerErrorResponse("Failed to update survey")
 	}
 
-	res.Status = true
-	res.Code = http.StatusCreated
-	res.Message = "Survey created successfully"
-	res.Data = newSurvey
-	return
+	return models.OkResponse(fiber.StatusCreated, "Survey created successfully", oldSurvey.ToResponse())
 }
 
 func (s surveyService) DeleteSurvey(ctx *fiber.Ctx, id string) models.ServiceResponse {
-	//TODO implement me
+	userID, err := utils.GetUserIDFromContext(ctx)
+	if err != nil {
+		return models.InternalServerErrorResponse("Cannot find UserID in token")
+	}
+
+	var survey models.Survey
+	if err = s.Db.Where("id = ? AND deleted_at IS NULL", id).First(&survey).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return models.NotFoundResponse(fmt.Sprintf("Survey with id %s not found", id))
+		}
+		return models.InternalServerErrorResponse(fmt.Sprintf("Failed to retrieve survey with id %s", id))
+	}
+
+	if userID != survey.UserID.String() {
+		return models.BadRequestResponse("Cannot delete survey for another user")
+	}
+
+	survey.DeletedBy = userID
+	survey.DeletedAt = gorm.DeletedAt{
+		Time:  time.Now(),
+		Valid: true,
+	}
+	if err = s.Db.Save(&survey).Error; err != nil {
+		return models.InternalServerErrorResponse(fmt.Sprintf("Failed to delete survey with id %s", id))
+	}
+
 	return models.OkResponse(200, "Survey deleted successfully", nil)
 }

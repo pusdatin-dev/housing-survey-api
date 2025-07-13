@@ -29,7 +29,8 @@ func (c *SurveyController) CreateSurvey(ctx *fiber.Ctx) error {
 		return utils.ToFiberJSON(ctx, models.ErrResponse(http.StatusBadRequest, "Invalid input"))
 	}
 
-	input.Actor = utils.GetActorEmailOrIP(ctx)
+	input.Actor = utils.GetActor(ctx)
+	input.Mode = "create"
 	res := c.Survey.CreateSurvey(ctx, input)
 	return utils.ToFiberJSON(ctx, res)
 }
@@ -41,13 +42,13 @@ func (c *SurveyController) UpdateSurvey(ctx *fiber.Ctx) error {
 		return utils.ToFiberJSON(ctx, models.ErrResponse(http.StatusBadRequest, "Invalid input"))
 	}
 
-	input.Actor = utils.GetActorEmailOrIP(ctx)
+	input.Actor = utils.GetActor(ctx)
+	input.Mode = "update"
 	res := c.Survey.UpdateSurvey(ctx, input)
 	return utils.ToFiberJSON(ctx, res)
 }
 
 func (c *SurveyController) DeleteSurvey(ctx *fiber.Ctx) error {
-	// Logic to delete a survey by ID
 	id := ctx.Params("id")
 	return utils.ToFiberJSON(ctx, c.Survey.DeleteSurvey(ctx, id))
 }

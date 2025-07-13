@@ -58,3 +58,30 @@ func InternalServerErrorResponse(message string) ServiceResponse {
 		Data:    nil,
 	}
 }
+
+func NotFoundResponse(message string) ServiceResponse {
+	return ServiceResponse{
+		Status:  true,
+		Code:    404,
+		Message: message,
+		Data:    nil,
+	}
+}
+
+func BadRequestResponse(message string) ServiceResponse {
+	return ServiceResponse{
+		Status:  true,
+		Code:    400,
+		Message: message,
+		Data:    nil,
+	}
+}
+
+func ForbiddenResponse(message string) ServiceResponse {
+	return ServiceResponse{
+		Status:  true,
+		Code:    403,
+		Message: message,
+		Data:    nil,
+	}
+}

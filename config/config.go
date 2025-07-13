@@ -11,6 +11,7 @@ type Config struct {
 	DBConfig
 	DBSeed bool
 	Roles  RolesConfig
+	Token  string
 }
 
 type DBConfig struct {
@@ -59,6 +60,7 @@ func LoadConfig() *Config {
 		DBConfig: dbConfig,
 		DBSeed:   getEnv("DB_SEED", "false") == "true",
 		Roles:    rolesConfig,
+		Token:    getEnv("JWT_SECRET", ""),
 	}
 }
 

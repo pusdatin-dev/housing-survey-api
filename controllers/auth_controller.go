@@ -38,7 +38,8 @@ func Login(c *fiber.Ctx) error {
 
 	claims := jwt.MapClaims{
 		"user_id":    user.ID.String(),
-		"role_id":    user.Role.Name,
+		"role_id":    user.Role.ID,
+		"role_name":  user.Role.Name,
 		"user_email": user.Email,
 		"user_name":  user.Profile.Name,
 		"exp":        time.Now().Add(time.Hour * 72).Unix(),
@@ -46,9 +47,13 @@ func Login(c *fiber.Ctx) error {
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	fmt.Println(os.Getenv("JWT_SECRET"))
 	signedToken, _ := token.SignedString([]byte(os.Getenv("JWT_SECRET")))
 	user.Token = &signedToken
-	config.DB.Model(&user).Update("token", user.Token)
+	if err := config.DB.Model(&user).Update("token", user.Token).Error; err != nil {
+		fmt.Println("Error updating user token: ", err)
+		return utils.ToFiberJSON(c, models.ErrResponse(500, "Failed to update user token"))
+	}
 	fmt.Println("Successfully signed in user ", user)
 	return utils.ToFiberJSON(c, models.OkResponse(fiber.StatusOK, "Login Successful",
 		fiber.Map{
@@ -58,17 +63,21 @@ func Login(c *fiber.Ctx) error {
 }
 
 func Logout(c *fiber.Ctx) error {
-	userID := c.Locals("user_id").(string)
+	userID, err := utils.GetUserIDFromContext(c)
+	if err != nil {
+		fmt.Println("Failed to extract user_id from token:", err)
+		return utils.ToFiberJSON(c, models.ErrResponse(401, "Unauthorized"))
+	}
 
-	err := config.DB.Model(&models.User{}).
+	err = config.DB.Model(&models.User{}).
 		Where("id = ?", userID).
+		Where("deleted_at IS NULL").
 		Update("token", nil).Error
 	if err != nil {
-		fmt.Println("Error updating token to null ", err)
+		fmt.Println("Error updating token to null:", err)
 		return utils.ToFiberJSON(c, models.ErrResponse(500, "Failed to logout"))
 	}
 
-	// Optionally: log to audit trail
-	fmt.Println("Successfully logged out")
+	fmt.Println("Successfully logged out user:", userID)
 	return utils.ToFiberJSON(c, models.OkResponse(200, "Logged out", nil))
 }
