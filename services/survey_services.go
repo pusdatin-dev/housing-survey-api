@@ -6,6 +6,7 @@ import (
 	"housing-survey-api/config"
 	"housing-survey-api/internal/context"
 	"housing-survey-api/models"
+	"housing-survey-api/shared"
 	"housing-survey-api/utils"
 	"strconv"
 	"time"
@@ -21,6 +22,7 @@ type SurveyService interface {
 	CreateSurvey(ctx *fiber.Ctx, survey models.SurveyInput) models.ServiceResponse
 	UpdateSurvey(ctx *fiber.Ctx, survey models.SurveyInput) models.ServiceResponse
 	DeleteSurvey(ctx *fiber.Ctx, id string) models.ServiceResponse
+	ActionSurvey(ctx *fiber.Ctx, input models.SurveyActionInput) models.ServiceResponse
 }
 
 type surveyService struct {
@@ -35,7 +37,7 @@ func NewSurveyService(ctx *context.AppContext) SurveyService {
 	}
 }
 
-func (s surveyService) GetAllSurveys(ctx *fiber.Ctx) models.ServiceResponse {
+func (s *surveyService) GetAllSurveys(ctx *fiber.Ctx) models.ServiceResponse {
 	var surveys []models.Survey
 	db := s.Db.Model(&models.Survey{}).Where("deleted_at IS NULL")
 
@@ -115,7 +117,7 @@ func (s surveyService) GetAllSurveys(ctx *fiber.Ctx) models.ServiceResponse {
 	})
 }
 
-func (s surveyService) GetSurveyDetail(ctx *fiber.Ctx, id string) models.ServiceResponse {
+func (s *surveyService) GetSurveyDetail(ctx *fiber.Ctx, id string) models.ServiceResponse {
 	var survey models.Survey
 	if err := s.Db.Where("id = ? AND deleted_at IS NULL", id).First(&survey).Error; err != nil {
 		return models.InternalServerErrorResponse("Failed to retrieve survey")
@@ -126,7 +128,7 @@ func (s surveyService) GetSurveyDetail(ctx *fiber.Ctx, id string) models.Service
 	return models.OkResponse(fiber.StatusOK, "Survey retrieved successfully", survey.ToResponse())
 }
 
-func (s surveyService) CreateSurvey(ctx *fiber.Ctx, input models.SurveyInput) models.ServiceResponse {
+func (s *surveyService) CreateSurvey(ctx *fiber.Ctx, input models.SurveyInput) models.ServiceResponse {
 	//enforcing role surveyor only will be in middleware
 	// Convert input to model
 	if err := input.Validate(); err != nil {
@@ -152,7 +154,7 @@ func (s surveyService) CreateSurvey(ctx *fiber.Ctx, input models.SurveyInput) mo
 	return models.OkResponse(fiber.StatusCreated, "Survey created successfully", survey.ToResponse())
 }
 
-func (s surveyService) UpdateSurvey(ctx *fiber.Ctx, survey models.SurveyInput) models.ServiceResponse {
+func (s *surveyService) UpdateSurvey(ctx *fiber.Ctx, survey models.SurveyInput) models.ServiceResponse {
 	//enforcing role surveyor only will be in middleware
 	//newSurvey := survey.ToSurvey()
 	oldSurvey := models.Survey{}
@@ -182,7 +184,7 @@ func (s surveyService) UpdateSurvey(ctx *fiber.Ctx, survey models.SurveyInput) m
 	return models.OkResponse(fiber.StatusCreated, "Survey created successfully", oldSurvey.ToResponse())
 }
 
-func (s surveyService) DeleteSurvey(ctx *fiber.Ctx, id string) models.ServiceResponse {
+func (s *surveyService) DeleteSurvey(ctx *fiber.Ctx, id string) models.ServiceResponse {
 	userID, err := utils.GetUserIDFromContext(ctx)
 	if err != nil {
 		return models.InternalServerErrorResponse("Cannot find UserID in token")
@@ -210,4 +212,62 @@ func (s surveyService) DeleteSurvey(ctx *fiber.Ctx, id string) models.ServiceRes
 	}
 
 	return models.OkResponse(200, "Survey deleted successfully", nil)
+}
+
+func (s *surveyService) ActionSurvey(ctx *fiber.Ctx, input models.SurveyActionInput) models.ServiceResponse {
+	if err := input.Validate(); err != nil {
+		return models.BadRequestResponse(err.Error())
+	}
+
+	role, err := utils.GetRoleNameFromContext(ctx)
+	if err != nil {
+		return models.InternalServerErrorResponse("Cannot determine role")
+	}
+
+	isVerificatorBalai := role == s.Config.Roles.VerificatorBalai
+	isVerificatorEselon1 := role == s.Config.Roles.VerificatorEselon1
+
+	if !isVerificatorBalai && !isVerificatorEselon1 {
+		return models.ForbiddenResponse("You are not allowed to perform this action")
+	}
+
+	// Base query
+	db := s.Db.Model(&models.Survey{}).
+		Where("id IN ?", input.SurveyIDs).
+		Where("is_submitted = ? AND deleted_at IS NULL", true)
+
+	// Filter based on role
+	if isVerificatorBalai {
+		db = db.Where("status_balai = ?", shared.Pending)
+	} else if isVerificatorEselon1 {
+		db = db.Where("status_balai = ? AND status_eselon1 = ?", shared.Approved, shared.Pending)
+	}
+
+	// Prepare update map
+	update := map[string]interface{}{}
+	if input.Action == shared.Rejected {
+		update["notes"] = input.Notes
+	}
+	if isVerificatorBalai {
+		update["status_balai"] = input.Action
+	} else {
+		update["status_eselon1"] = input.Action
+	}
+
+	// Perform update in one query
+	result := db.Updates(update)
+	if result.Error != nil {
+		return models.InternalServerErrorResponse("Failed to update surveys")
+	}
+
+	// Calculate counts
+	successCount := result.RowsAffected
+	failedCount := int64(len(input.SurveyIDs)) - successCount
+
+	return models.OkResponse(fiber.StatusOK, fmt.Sprintf(
+		"%s %d survey(s), %d failed", input.Action, successCount, failedCount,
+	), fiber.Map{
+		"success_count": successCount,
+		"failed_count":  failedCount,
+	})
 }

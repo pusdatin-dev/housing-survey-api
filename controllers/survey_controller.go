@@ -52,3 +52,15 @@ func (c *SurveyController) DeleteSurvey(ctx *fiber.Ctx) error {
 	id := ctx.Params("id")
 	return utils.ToFiberJSON(ctx, c.Survey.DeleteSurvey(ctx, id))
 }
+
+// ActionSurvey handles the approval and rejection on a survey
+func (c *SurveyController) ActionSurvey(ctx *fiber.Ctx) error {
+	var input models.SurveyActionInput
+	if err := ctx.BodyParser(&input); err != nil {
+		fmt.Println("Error parsing request body:", err)
+		return utils.ToFiberJSON(ctx, models.ErrResponse(http.StatusBadRequest, "Invalid input"))
+	}
+	input.Actor = utils.GetActor(ctx)
+	res := c.Survey.ActionSurvey(ctx, input)
+	return utils.ToFiberJSON(ctx, res)
+}

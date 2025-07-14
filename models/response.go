@@ -85,3 +85,11 @@ func ForbiddenResponse(message string) ServiceResponse {
 		Data:    nil,
 	}
 }
+
+type DataListResponse struct {
+	Data       interface{} `json:"data"`  // List of data items
+	Total      int         `json:"total"` // Total number of items across all pages
+	Limit      int         `json:"limit"` // Number of items per page
+	Page       int         `json:"page"`
+	TotalPages int         `json:"total_pages"` // Total number of pages
+}

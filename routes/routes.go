@@ -1,24 +1,35 @@
 package routes
 
 import (
+	"fmt"
 	"housing-survey-api/controllers"
+	"reflect"
+	"runtime"
 
 	"github.com/gofiber/fiber/v2"
 )
 
 func SetupRoutes(app *fiber.App, ctrl *controllers.ControllerRegistry) {
-	api := app.Group("/api")
+	v1 := app.Group("/api/v1")
 
-	v1 := api.Group("/v1")
-	// All v1 routes — logging + audit fields
-	AuthRoutes(v1) // /login, /signup
-	UserRoutesV1(v1)
+	AuthRoutes(v1, ctrl.Auth) // /login, /signup
+	UserRoutesV1(v1, ctrl.User)
 	CommentRoutes(v1, ctrl.Comment)
 	SurveyRoutesV1(v1, ctrl.Survey)
 	AuditLogRoutes(v1, ctrl.AuditLog)
+}
 
-	//// Health check or homepage
-	//app.Get("/", func(c *fiber.Ctx) error {
-	//	return c.SendString("Housing Survey API is running")
-	//})
+func PrintRoutes(app *fiber.App) {
+	for _, route := range app.GetRoutes() {
+		fmt.Printf("Route: %-7s %-31s | Handlers: %d\n", route.Method, route.Path, len(route.Handlers))
+
+		for i, handler := range route.Handlers {
+			handlerName := getFunctionName(handler)
+			fmt.Printf("   └── Handler %d: %s\n", i+1, handlerName)
+		}
+	}
+}
+
+func getFunctionName(f fiber.Handler) string {
+	return runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name()
 }

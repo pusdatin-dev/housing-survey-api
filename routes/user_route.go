@@ -2,22 +2,24 @@ package routes
 
 import (
 	"housing-survey-api/controllers"
+	"housing-survey-api/middleware"
 
 	"github.com/gofiber/fiber/v2"
 )
 
-func UserRoutesV1(r fiber.Router) {
+func UserRoutesV1(r fiber.Router, ctrl *controllers.UserController) {
 	user := r.Group("/users")
+	auth := middleware.New().Auth().Build()
+	public := middleware.New().Public().Build()
 
-	//authRequired := user.Group("", middleware.New().Auth().Build()...)
-	authRequired := user.Group("")
-	authRequired.Post("", controllers.CreateUser)
-	authRequired.Put("", controllers.UpdateUser)
-	authRequired.Delete("/:id", controllers.DeleteUser)
+	user.Post("", middleware.With(ctrl.CreateUser, auth...)...)
+	user.Put("", middleware.With(ctrl.UpdateUser, auth...)...)
+	user.Delete("/:id", middleware.With(ctrl.DeleteUser, auth...)...)
+	user.Get("", middleware.With(ctrl.GetAllUsers, auth...)...)
+	user.Get("/:id", middleware.With(ctrl.GetUserByID, auth...)...)
+	user.Post("/approve", middleware.With(ctrl.ApproveUser, auth...)...)
 
 	// 🌐 PublicAccess routes (no auth)
-	//public := user.Group("", middleware.New().Public().Build()...)
-	public := user.Group("")
-	public.Get("", controllers.GetUsers)
-	public.Get("/:id", controllers.GetUserByID)
+	user.Post("/signup", middleware.With(ctrl.SignupUser, public...)...)
+
 }

@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"fmt"
+	"housing-survey-api/utils"
 	"strings"
 	"time"
 
@@ -14,44 +15,59 @@ import (
 func AuditLogger() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		start := time.Now()
-		// Copy required values
-		userID, _ := c.Locals("user_id").(string)
-		email, _ := c.Locals("user_email").(string)
-		name, _ := c.Locals("user_name").(string)
-		role, _ := c.Locals("role_name").(string)
-		fmt.Printf("User ID: %s, email: %s, name: %s\n", userID, email, name)
+
+		// Extract context data safely
+		userID, _ := utils.GetUserIDFromContext(c)
+		email, _ := utils.GetUserEmailFromContext(c)
+		name, _ := utils.GetUserNameFromContext(c)
+		role, _ := utils.GetRoleNameFromContext(c)
+
 		ip := c.IP()
-		path := c.OriginalURL()
-		method := c.Method()
 		url := c.OriginalURL()
+		method := c.Method()
 
-		// Before API
-		fmt.Printf("[API] %s %s from %s | user: %s (ID: %s, role: %s)\n", method, path, ip, email, userID, role)
-		insertAuditLog(userID, name, email, ip, method, url, "START")
+		// START phase log
+		LogAudit("START", userID, name, email, ip, method, url, fiber.StatusOK, "")
+		fmt.Printf("[API] %s %s from %s | user: %s (ID: %s, role: %s)\n", method, url, ip, email, userID, role)
 
-		err := c.Next() // Continue to handler
+		// Proceed with handler
+		err := c.Next()
 
-		// After API
-		insertAuditLog(userID, name, email, ip, method, url, "END")
-		fmt.Println("finish logging audit for user:", userID, "email:", email, "name:", name)
-		duration := time.Since(start) // Optional timing metric
-		fmt.Printf("[API Done] %s %s (%v)\n", method, path, duration)
+		// Collect status and error
+		status := c.Response().StatusCode()
+		var errMsg string
+		if err != nil {
+			errMsg = err.Error()
+		}
+
+		// Log END
+		LogAudit("END", userID, name, email, ip, method, url, status, errMsg)
+		duration := time.Since(start)
+		fmt.Printf("[API Done] %s %s (%v)\n", method, url, duration)
 
 		return err
 	}
 }
 
-func insertAuditLog(userIDStr, name, email, ip, method, url, phase string) {
+func LogAudit(phase, userID, name, email, ip, method, url string, status int, errMsg string) {
 	action := fmt.Sprintf("%s_%s", phase, strings.ToUpper(method))
 	entity := url
 
+	detail := name
+	if phase == "END" {
+		detail = fmt.Sprintf("status: %d", status)
+		if errMsg != "" {
+			detail += fmt.Sprintf(", error: %s", errMsg)
+		}
+	}
+
 	log := models.AuditLog{
-		UserID:    pointer(userIDStr),
+		UserID:    pointer(userID),
 		Email:     pointer(email),
 		IP:        pointer(ip),
 		Action:    &action,
 		Entity:    &entity,
-		Detail:    pointer(name),
+		Detail:    pointer(detail),
 		CreatedAt: time.Now(),
 	}
 
@@ -61,42 +77,8 @@ func insertAuditLog(userIDStr, name, email, ip, method, url, phase string) {
 }
 
 func pointer(s string) *string {
-	if s == "" {
+	if strings.TrimSpace(s) == "" {
 		return nil
 	}
 	return &s
-}
-
-func InjectUserAuditFields() fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		c.Locals("created_by", c.Locals("user_name").(string))
-		c.Locals("updated_by", c.Locals("user_name").(string))
-		c.Locals("deleted_by", c.Locals("user_name").(string))
-		PrintLocals(c)
-		return c.Next()
-	}
-}
-
-func RequestLogger() fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		start := time.Now()
-		method := c.Method()
-		path := c.OriginalURL()
-		ip := c.IP()
-		email, _ := c.Locals("user_email").(string)
-		userID, _ := c.Locals("user_id").(string)
-		role, _ := c.Locals("role_name").(string)
-
-		// Before request
-		fmt.Printf("[API] %s %s from %s | user: %s (ID: %s, role: %s)\n", method, path, ip, email, userID, role)
-
-		// Continue to next middleware/handler
-		err := c.Next()
-
-		// After request
-		duration := time.Since(start)
-		fmt.Printf("[API Done] %s %s (%v)\n", method, path, duration)
-
-		return err
-	}
 }

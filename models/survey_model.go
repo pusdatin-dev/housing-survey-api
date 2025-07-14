@@ -21,6 +21,7 @@ type Survey struct {
 	StatusBalai   string         `gorm:"type:text;default:'Pending';check:status_balai IN ('Pending', 'Approved', 'Rejected')"` // Pending, Approved, Rejected
 	StatusEselon1 string         `gorm:"type:text;default:'Pending';check:status_balai IN ('Pending', 'Approved', 'Rejected')"` // Pending, Approved, Rejected
 	IsSubmitted   bool           `gorm:"default:false"`
+	Notes         string         `gorm:"type:text"` // Notes for Balai or Eselon1
 	Images        pq.StringArray `gorm:"type:text[]"`
 	ProvinceID    uint           `gorm:"index"`
 	DistrictID    uint           `gorm:"index"`
@@ -44,6 +45,7 @@ type SurveyResponse struct {
 	Type          string         `json:"type"`
 	IsSubmitted   bool           `json:"is_submitted"` // default false
 	Status        string         `json:"status"`
+	Notes         string         `json:"notes"`
 	Images        pq.StringArray `json:"images"`
 	ProvinceID    uint           `json:"province_id"`
 	DistrictID    uint           `json:"district_id"`
@@ -89,6 +91,7 @@ func (s *Survey) ToResponse() SurveyResponse {
 		Type:          s.Type,
 		IsSubmitted:   s.IsSubmitted,
 		Status:        s.GetStatusSurvey(),
+		Notes:         s.Notes,
 		Images:        s.Images,
 		ProvinceID:    s.ProvinceID,
 		DistrictID:    s.DistrictID,
@@ -178,5 +181,22 @@ func (s *SurveyInput) Validate() error {
 		"VillageID.required":     "Village is required",
 	}
 
+	return shared.CustomValidate(s, customMessages)
+}
+
+type SurveyActionInput struct {
+	SurveyIDs []string `json:"survey_ids" validate:"required"`
+	Action    string   `json:"action" validate:"required,oneof=Approved Rejected"`
+	Notes     string   `json:"notes" validation:"required_if=Action Rejected"` // Notes for rejection
+	Actor     string   `json:"-"`                                              // Actor who performs the action
+}
+
+func (s *SurveyActionInput) Validate() error {
+	customMessages := map[string]string{
+		"SurveyIDs.required": "Survey IDs are required",
+		"Action.required":    "Action is required",
+		"Action.oneof":       "Action must be either 'Approved' or 'Rejected'",
+		"Notes.required_if":  "Notes are required when rejecting a survey",
+	}
 	return shared.CustomValidate(s, customMessages)
 }

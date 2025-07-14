@@ -5,6 +5,7 @@ import (
 	"housing-survey-api/config"
 	"housing-survey-api/controllers"
 	"housing-survey-api/internal/context"
+	"housing-survey-api/middleware"
 	"housing-survey-api/routes"
 	"housing-survey-api/seed"
 	"log"
@@ -28,12 +29,12 @@ func main() {
 
 	// Init services
 	ctrl := controllers.InitControllers(appCtx)
-	app := fiber.New()
-	//app.Use(recover)
-
+	app := fiber.New(fiber.Config{
+		DisableDefaultDate:           true,
+		DisablePreParseMultipartForm: true,
+	})
+	middleware.InitMiddleware(appCtx)
 	routes.SetupRoutes(app, ctrl)
-	for _, route := range app.GetRoutes() {
-		fmt.Printf("Route: %-7s %-31s | Handlers: %d\n", route.Method, route.Path, len(route.Handlers))
-	}
+	routes.PrintRoutes(app)
 	log.Fatal(app.Listen(":8080"))
 }

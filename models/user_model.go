@@ -63,6 +63,7 @@ func ToUserResponses(users []User) []UserResponse {
 }
 
 type UserInput struct {
+	ID       string    `json:"id"` // Optional, for updates. Should be a valid UUID.
 	Email    string    `json:"email" validate:"required,email"`
 	Password string    `json:"password" validate:"required,min=6"`
 	RoleID   uint      `json:"role_id" validate:"required"`
@@ -74,6 +75,8 @@ type UserInput struct {
 	Actor    string    `json:"-"`
 }
 
+// ToUser used only in creating a new user
+// If wanted to use for updating, need to handle ID and Actor separately
 func (u *UserInput) ToUser() User {
 	return User{
 		Email:    u.Email,
@@ -95,15 +98,6 @@ func (u *UserInput) ToUser() User {
 		UpdatedBy: u.Actor,
 		UpdatedAt: time.Now(),
 	}
-}
-
-// CustomMessages maps field.tag to error messages
-var customMessages = map[string]string{
-	"Email.required":    "Email is required",
-	"Email.email":       "Email must be a valid email address",
-	"Password.required": "Password is required",
-	"Password.min":      "Password must be at least 6 characters",
-	"RoleID.required":   "Role is required",
 }
 
 func (u *UserInput) Validate() error {
