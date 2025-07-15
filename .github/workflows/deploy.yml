@@ -17,30 +17,40 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.DEPLOY_SSH_PRIVATE_KEY_B64 }}" | base64 -d > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          echo "Disabling SSH agent to avoid too many authentication failures..."
-          ssh-add -D || true
-          echo "Adding known host..."
+
+          echo "📛 Disable SSH agent & set SSH config"
+          echo "Host *" > ~/.ssh/config
+          echo "  IdentitiesOnly yes" >> ~/.ssh/config
+          echo "  IdentityFile ~/.ssh/deploy_key" >> ~/.ssh/config
+          echo "  StrictHostKeyChecking no" >> ~/.ssh/config
+
+          echo "🧠 Add server to known_hosts"
           ssh-keyscan -p ${{ secrets.DEPLOY_PORT }} ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts
+
+      - name: 🔍 Test SSH connection
+        run: |
+          ssh -F ~/.ssh/config -p ${{ secrets.DEPLOY_PORT }} \
+            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} "echo '✅ SSH connection successful'"
 
       - name: 🔁 Rsync project files to server
         run: |
           rsync -az --delete \
-            -e "ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -p ${{ secrets.DEPLOY_PORT }}" \
+            -e "ssh -F ~/.ssh/config -p ${{ secrets.DEPLOY_PORT }}" \
             ./ ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:${{ secrets.DEPLOY_PATH }}
 
       - name: 🚀 Restart Docker Compose with graceful shutdown
         run: |
-          ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -p ${{ secrets.DEPLOY_PORT }} \
+          ssh -F ~/.ssh/config -p ${{ secrets.DEPLOY_PORT }} \
             ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} 'bash -s' << 'EOF'
             set -e
             cd ${{ secrets.DEPLOY_PATH }}
-            echo "[1/3] Gracefully stopping existing containers..."
+            echo "[1/3] 🛑 Gracefully stopping existing containers..."
             docker compose down --remove-orphans
 
-            echo "[2/3] Starting containers..."
+            echo "[2/3] 🔄 Starting containers..."
             docker compose up --build -d
 
-            echo "[3/3] Waiting for app health check..."
+            echo "[3/3] 🩺 Waiting for app health check..."
             for i in {1..10}; do
               if curl -s --fail http://localhost:8080/health > /dev/null; then
                 echo "✅ App healthy after deploy"
