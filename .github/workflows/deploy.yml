@@ -12,14 +12,12 @@ jobs:
       - name: 📥 Checkout repository
         uses: actions/checkout@v4
 
-      - name: 🔐 Setup SSH key from base64 secret
+      - name: 🔐 Setup raw SSH private key
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.DEPLOY_SSH_PRIVATE_KEY_B64 }}" | base64 -d > ~/.ssh/deploy_key
-          echo "${{ secrets.DEPLOY_SSH_PRIVATE_KEY_B64 }}"
-          echo ~/.ssh/deploy_key
+          echo "${{ secrets.DEPLOY_SSH_PRIVATE_KEY_RAW }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          unset SSH_AUTH_SOCK  # Prevent GitHub Actions SSH agent interference
+          unset SSH_AUTH_SOCK  # prevent loading extra identities
           echo "🔎 Adding server to known_hosts..."
           ssh-keyscan -p ${{ secrets.DEPLOY_PORT }} ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts
 
