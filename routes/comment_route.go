@@ -13,4 +13,7 @@ func CommentRoutes(r fiber.Router, ctrl *controllers.CommentController) {
 	comments.Get("/", middleware.PublicHandler(ctrl.GetComments)...)
 	comments.Get("/:id", middleware.PublicHandler(ctrl.GetCommentByID)...)
 	comments.Post("/", middleware.PublicHandler(ctrl.CreatePublicComment)...)
+
+	// --> add authenticated routes for verificator roles
+	// --> can comment to publicComments and update comments
 }

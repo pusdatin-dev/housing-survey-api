@@ -17,6 +17,7 @@ func SurveyRoutesV1(v1 fiber.Router, ctrl *controllers.SurveyController) {
 	survey.Put("/", middleware.With(ctrl.UpdateSurvey, auth...)...)
 	survey.Delete("/:id", middleware.With(ctrl.DeleteSurvey, auth...)...)
 	survey.Post("/action", middleware.With(ctrl.ActionSurvey, auth...)...)
+	// --> add api for infografis balai (survey	by balai->masuk,reject, pending eselon, verif), laporan per bulan,
 
 	// 🌐 PublicAccess routes (no auth)
 	survey.Get("/", middleware.With(ctrl.GetAllSurveys, public...)...)
