@@ -1,28 +1,90 @@
+version: '3.9'
+
 services:
+  # PostgreSQL Database
   db:
     image: postgres:15
+    container_name: survey-db
     environment:
       POSTGRES_USER: survey_user
       POSTGRES_PASSWORD: survey_pass
       POSTGRES_DB: survey_db
-    ports:
-      - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    networks:
+      - backend
+    restart: unless-stopped
 
-  app:
-    build: .
-    restart: always
+  # Load Balancer using HAProxy
+  haproxy:
+    image: haproxy:2.9
+    container_name: haproxy
     ports:
-      - "8080:8080"
+      - "80:80"       # App traffic
+      - "8404:8404"   # HAProxy stats
     volumes:
-      - .:/app                 # Mount source code
-      - ./storage:/app/storage
-#      - /app/tmp               # Allow binary output
+      - ./haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg
     depends_on:
-      - db
-    env_file:
-      - .env
+      - app1
+      - app2
+      - app3
+    networks:
+      - frontend
+      - backend
+    restart: unless-stopped
 
+  # Go API App Instance 1
+  app1:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    container_name: go-api-1
+    environment:
+      - APP_ENV=development
+    expose:
+      - "8080"
+    networks:
+      - frontend
+      - backend
+    restart: unless-stopped
+
+  # Go API App Instance 2
+  app2:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    container_name: go-api-2
+    environment:
+      - APP_ENV=development
+    expose:
+      - "8080"
+    networks:
+      - frontend
+      - backend
+    restart: unless-stopped
+
+  # Go API App Instance 3
+  app3:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    container_name: go-api-3
+    environment:
+      - APP_ENV=development
+    expose:
+      - "8080"
+    networks:
+      - frontend
+      - backend
+    restart: unless-stopped
+
+# Named volumes
 volumes:
   pgdata:
+
+# Networks
+networks:
+  frontend:
+    driver: bridge
+  backend:
+    driver: bridge
