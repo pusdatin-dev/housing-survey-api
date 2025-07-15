@@ -83,7 +83,7 @@ func insertShutdownLog(db *gorm.DB) {
 	action := "shutdown"
 	entity := "server"
 	email := "housing-survey-api"
-	actor := "system"
+	actor := "systems"
 	detail := "Graceful shutdown triggered"
 	logEntry := models.AuditLog{
 		Action:    &action,
