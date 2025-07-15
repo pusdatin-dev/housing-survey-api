@@ -11,6 +11,7 @@ type ControllerRegistry struct {
 	Survey   *SurveyController
 	Auth     *AuthController
 	User     *UserController
+	Surveyor *SurveyorController
 }
 
 func InitControllers(appCtx *context.AppContext) *ControllerRegistry {
@@ -19,6 +20,7 @@ func InitControllers(appCtx *context.AppContext) *ControllerRegistry {
 	surveyController := &SurveyController{Survey: services.NewSurveyService(appCtx)}
 	userController := &UserController{User: services.NewUserService(appCtx)}
 	authController := &AuthController{Db: appCtx.DB, Config: appCtx.Config}
+	surveyorController := &SurveyorController{Surveyor: services.NewSurveyorService(appCtx)}
 
 	return &ControllerRegistry{
 		Comment:  commentController,
@@ -26,5 +28,6 @@ func InitControllers(appCtx *context.AppContext) *ControllerRegistry {
 		Survey:   surveyController,
 		User:     userController,
 		Auth:     authController,
+		Surveyor: surveyorController,
 	}
 }

@@ -39,6 +39,7 @@ func InitDB(cfg *Config) *gorm.DB {
 		&models.Survey{},
 		&models.Comment{},
 		&models.AuditLog{},
+		&models.Surveyor{},
 	)
 	if err != nil {
 		log.Fatalf("Failed to auto-migrate models: %v", err)

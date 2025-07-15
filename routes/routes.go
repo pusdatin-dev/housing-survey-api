@@ -17,6 +17,7 @@ func SetupRoutes(app *fiber.App, ctrl *controllers.ControllerRegistry) {
 	CommentRoutes(v1, ctrl.Comment)
 	SurveyRoutesV1(v1, ctrl.Survey)
 	AuditLogRoutes(v1, ctrl.AuditLog)
+	SurveyorRoutes(v1, ctrl.Surveyor)
 }
 
 func PrintRoutes(app *fiber.App) {
