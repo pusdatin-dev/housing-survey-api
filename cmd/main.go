@@ -3,6 +3,12 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
 	"housing-survey-api/config"
 	"housing-survey-api/controllers"
 	appcontext "housing-survey-api/internal/context"
@@ -10,11 +16,6 @@ import (
 	"housing-survey-api/models"
 	"housing-survey-api/routes"
 	"housing-survey-api/seed"
-	"log"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
