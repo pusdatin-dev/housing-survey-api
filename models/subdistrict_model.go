@@ -1,8 +1,9 @@
 package models
 
 import (
-	"housing-survey-api/shared"
 	"time"
+
+	"housing-survey-api/shared"
 
 	"gorm.io/gorm"
 )
@@ -23,7 +24,7 @@ type Subdistrict struct {
 	DeletedAt gorm.DeletedAt `gorm:"index"`
 }
 
-func (s *Subdistrict) UpdateFromInput(input SubdistrictInput) {
+func (s *Subdistrict) UpdateFromInput(input *SubdistrictInput) {
 	s.Name = input.Name
 	s.DistrictID = input.DistrictID
 	s.UpdatedBy = input.Actor
@@ -35,6 +36,11 @@ func (s *Subdistrict) Update(newSubdistrict *Subdistrict) {
 	s.DistrictID = newSubdistrict.DistrictID
 	s.UpdatedBy = newSubdistrict.UpdatedBy
 	s.UpdatedAt = time.Now()
+}
+
+func (s *Subdistrict) MarkDeleted(actor string) {
+	s.DeletedBy = actor
+	s.DeletedAt = gorm.DeletedAt{Time: time.Now(), Valid: true}
 }
 
 func (s *Subdistrict) ToResponse() SubdistrictResponse {
@@ -77,7 +83,7 @@ func (s *SubdistrictInput) Validate() error {
 	return shared.CustomValidate(s, custom)
 }
 
-func (s *SubdistrictInput) ToSubdistrict() Subdistrict {
+func (s *SubdistrictInput) ToModel() Subdistrict {
 	now := time.Now()
 	return Subdistrict{
 		ID:         s.ID,

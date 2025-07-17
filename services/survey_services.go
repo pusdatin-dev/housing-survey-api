@@ -97,7 +97,7 @@ func (s *surveyService) GetAllSurveys(ctx *fiber.Ctx) models.ServiceResponse {
 	// Count total results
 	var total int64
 	if err := db.Count(&total).Error; err != nil {
-		return models.InternalServerErrorResponse("Failed to count comments")
+		return models.InternalServerErrorResponse("Failed to count surveys")
 	}
 
 	if err := s.Db.Preload("User").Limit(limit).Offset(offset).Order("created_at desc").Find(&surveys).Error; err != nil {

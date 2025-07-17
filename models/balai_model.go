@@ -1,8 +1,9 @@
 package models
 
 import (
-	"housing-survey-api/shared"
 	"time"
+
+	"housing-survey-api/shared"
 
 	"gorm.io/gorm"
 )
@@ -27,7 +28,7 @@ type Balai struct {
 	DeletedAt gorm.DeletedAt `gorm:"index"`
 }
 
-func (b *Balai) UpdateFromInput(input BalaiInput) {
+func (b *Balai) UpdateFromInput(input *BalaiInput) {
 	b.Name = input.Name
 	b.ProvinceID = input.ProvinceID
 	b.DistrictID = input.DistrictID
@@ -37,7 +38,7 @@ func (b *Balai) UpdateFromInput(input BalaiInput) {
 	b.UpdatedAt = time.Now()
 }
 
-func (b *Balai) Update(newBalai *Balai) {
+func (b *Balai) UpdateFromModel(newBalai *Balai) {
 	b.Name = newBalai.Name
 	b.ProvinceID = newBalai.ProvinceID
 	b.DistrictID = newBalai.DistrictID
@@ -45,6 +46,11 @@ func (b *Balai) Update(newBalai *Balai) {
 	b.VillageID = newBalai.VillageID
 	b.UpdatedBy = newBalai.UpdatedBy
 	b.UpdatedAt = time.Now()
+}
+
+func (b *Balai) MarkDeleted(actor string) {
+	b.DeletedBy = actor
+	b.DeletedAt = gorm.DeletedAt{Time: time.Now(), Valid: true}
 }
 
 func (b *Balai) ToResponse() BalaiResponse {
@@ -105,7 +111,7 @@ func (b *BalaiInput) Validate() error {
 	return shared.CustomValidate(b, customMessages)
 }
 
-func (b *BalaiInput) ToBalai() Balai {
+func (b *BalaiInput) ToModel() Balai {
 	now := time.Now()
 	return Balai{
 		ID:            b.ID,

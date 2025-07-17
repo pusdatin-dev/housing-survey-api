@@ -1,17 +1,17 @@
 package models
 
 import (
-	"housing-survey-api/shared"
 	"time"
+
+	"housing-survey-api/shared"
 
 	"gorm.io/gorm"
 )
 
 // Province Master Data
 type Province struct {
-	ID   uint   `gorm:"primary_key;autoIncrement"`
-	Name string `gorm:"type:text;uniqueIndex;not null"`
-
+	ID        uint   `gorm:"primaryKey;autoIncrement"`
+	Name      string `gorm:"type:text;uniqueIndex;not null"`
 	CreatedBy string `gorm:"type:text"`
 	UpdatedBy string `gorm:"type:text"`
 	DeletedBy string `gorm:"type:text"`
@@ -20,16 +20,57 @@ type Province struct {
 	DeletedAt gorm.DeletedAt `gorm:"index"`
 }
 
-func (p *Province) UpdateFromInput(input ProvinceInput) {
+// Input Struct
+type ProvinceInput struct {
+	ID    uint   `json:"id" validate:"required_if=Mode update"`
+	Name  string `json:"name" validate:"required"`
+	Actor string `json:"-"` // set in controller
+	Mode  string `json:"-"` // "create" or "update"
+}
+
+// Response Struct
+type ProvinceResponse struct {
+	ID   uint   `json:"id"`
+	Name string `json:"name"`
+}
+
+// ======= Methods =======
+
+func (input *ProvinceInput) Validate() error {
+	custom := map[string]string{
+		"ID.required_if": "Province ID is required for update",
+		"Name.required":  "Province name is required",
+	}
+	return shared.CustomValidate(input, custom)
+}
+
+func (input *ProvinceInput) ToModel() *Province {
+	now := time.Now()
+	return &Province{
+		ID:        input.ID,
+		Name:      input.Name,
+		CreatedBy: input.Actor,
+		UpdatedBy: input.Actor,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+}
+
+func (p *Province) UpdateFromInput(input *ProvinceInput) {
 	p.Name = input.Name
 	p.UpdatedBy = input.Actor
 	p.UpdatedAt = time.Now()
 }
 
-func (p *Province) Update(newProvince *Province) {
-	p.Name = newProvince.Name
-	p.UpdatedBy = newProvince.UpdatedBy
+func (p *Province) UpdateFromModel(new *Province) {
+	p.Name = new.Name
+	p.UpdatedBy = new.UpdatedBy
 	p.UpdatedAt = time.Now()
+}
+
+func (p *Province) MarkDeleted(actor string) {
+	p.DeletedBy = actor
+	p.DeletedAt = gorm.DeletedAt{Time: time.Now(), Valid: true}
 }
 
 func (p *Province) ToResponse() ProvinceResponse {
@@ -39,41 +80,10 @@ func (p *Province) ToResponse() ProvinceResponse {
 	}
 }
 
-func ToProvinceResponses(provinces []Province) []ProvinceResponse {
-	res := make([]ProvinceResponse, len(provinces))
-	for i, p := range provinces {
+func ToProvinceResponses(list []Province) []ProvinceResponse {
+	res := make([]ProvinceResponse, len(list))
+	for i, p := range list {
 		res[i] = p.ToResponse()
 	}
 	return res
-}
-
-type ProvinceInput struct {
-	ID    uint   `json:"id"`
-	Name  string `json:"name" validate:"required"`
-	Actor string `json:"-"`
-	Mode  string `json:"-"`
-}
-
-type ProvinceResponse struct {
-	ID   uint   `json:"id"`
-	Name string `json:"name"`
-}
-
-func (p *ProvinceInput) Validate() error {
-	custom := map[string]string{
-		"Name.required": "Province name is required",
-	}
-	return shared.CustomValidate(p, custom)
-}
-
-func (p *ProvinceInput) ToProvince() Province {
-	now := time.Now()
-	return Province{
-		ID:        p.ID,
-		Name:      p.Name,
-		CreatedBy: p.Actor,
-		UpdatedBy: p.Actor,
-		CreatedAt: now,
-		UpdatedAt: now,
-	}
 }

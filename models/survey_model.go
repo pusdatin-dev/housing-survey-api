@@ -1,8 +1,9 @@
 package models
 
 import (
-	"housing-survey-api/shared"
 	"time"
+
+	"housing-survey-api/shared"
 
 	"github.com/lib/pq"
 	"gorm.io/gorm"

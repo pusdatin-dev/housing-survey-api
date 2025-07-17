@@ -10,6 +10,4 @@ import (
 func AuthRoutes(r fiber.Router, ctrl *controllers.AuthController) {
 	r.Post("/login", middleware.PublicHandler(ctrl.Login)...)
 	r.Post("/logout", middleware.AuthHandler(ctrl.Logout)...)
-	//r.Post("/login", ctrl.Login)
-	//r.Post("/logout", ctrl.Logout)
 }

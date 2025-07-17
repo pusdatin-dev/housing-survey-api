@@ -2,10 +2,10 @@ package controllers
 
 import (
 	"fmt"
+
 	"housing-survey-api/models"
 	"housing-survey-api/services"
 	"housing-survey-api/utils"
-	"os"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -23,12 +23,6 @@ func (c *CommentController) GetCommentByID(ctx *fiber.Ctx) error {
 }
 
 func (c *CommentController) CreatePublicComment(ctx *fiber.Ctx) error {
-	defer func() {
-		if r := recover(); r != nil {
-			fmt.Fprintf(os.Stderr, "Panic in CreatePublicComment: %v\n", r)
-		}
-	}()
-
 	fmt.Println("Create public comment")
 	var input models.CommentInput
 	if err := ctx.BodyParser(&input); err != nil {
