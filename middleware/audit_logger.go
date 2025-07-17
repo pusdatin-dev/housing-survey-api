@@ -1,84 +1,39 @@
 package middleware
 
 import (
+	"context"
 	"fmt"
 	"housing-survey-api/utils"
-	"strings"
-	"time"
-
-	"housing-survey-api/config"
-	"housing-survey-api/models"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 )
 
 func AuditLogger() fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		start := time.Now()
+		// Generate or extract request ID
+		requestID := c.Get("X-Request-ID")
+		if requestID == "" {
+			requestID = uuid.NewString()
+		}
+		c.Set("X-Request-ID", requestID)
 
-		// Extract context data safely
-		userID, _ := utils.GetUserIDFromContext(c)
-		email, _ := utils.GetUserEmailFromContext(c)
-		name, _ := utils.GetUserNameFromContext(c)
-		role, _ := utils.GetRoleNameFromContext(c)
+		// Inject into context (used in services/utils)
+		ctx := context.WithValue(c.UserContext(), utils.RequestIDKey, requestID)
+		c.SetUserContext(ctx)
 
-		ip := c.IP()
-		url := c.OriginalURL()
-		method := c.Method()
+		// Use c directly here
+		utils.LogAudit(c, "API_ENTER", "User entered API")
 
-		// START phase log
-		LogAudit("START", userID, name, email, ip, method, url, fiber.StatusOK, "")
-		fmt.Printf("[API] %s %s from %s | user: %s (ID: %s, role: %s)\n", method, url, ip, email, userID, role)
-
-		// Proceed with handler
 		err := c.Next()
 
-		// Collect status and error
 		status := c.Response().StatusCode()
-		var errMsg string
 		if err != nil {
-			errMsg = err.Error()
+			utils.LogAudit(c, "API_ERROR", fmt.Sprintf("status: %d, err: %v", status, err))
+		} else {
+			utils.LogAudit(c, "API_EXIT", fmt.Sprintf("status: %d", status))
 		}
-
-		// Log END
-		LogAudit("END", userID, name, email, ip, method, url, status, errMsg)
-		duration := time.Since(start)
-		fmt.Printf("[API Done] %s %s (%v)\n", method, url, duration)
 
 		return err
 	}
-}
-
-func LogAudit(phase, userID, name, email, ip, method, url string, status int, errMsg string) {
-	action := fmt.Sprintf("%s_%s", phase, strings.ToUpper(method))
-	entity := url
-
-	detail := name
-	if phase == "END" {
-		detail = fmt.Sprintf("status: %d", status)
-		if errMsg != "" {
-			detail += fmt.Sprintf(", error: %s", errMsg)
-		}
-	}
-
-	log := models.AuditLog{
-		UserID:    pointer(userID),
-		Email:     pointer(email),
-		IP:        pointer(ip),
-		Action:    &action,
-		Entity:    &entity,
-		Detail:    pointer(detail),
-		CreatedAt: time.Now(),
-	}
-
-	if err := config.DB.Create(&log).Error; err != nil {
-		fmt.Printf("Failed to insert audit log: %v\n", err)
-	}
-}
-
-func pointer(s string) *string {
-	if strings.TrimSpace(s) == "" {
-		return nil
-	}
-	return &s
 }

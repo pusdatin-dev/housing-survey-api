@@ -10,13 +10,9 @@ import (
 
 func AuthRequired() fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		ip := c.IP()
-		method := c.Method()
-		url := c.OriginalURL()
-
 		tokenStr := c.Get("Authorization")
 		if !strings.HasPrefix(tokenStr, "Bearer ") {
-			LogAudit("AUTH_FAIL", "", "", "", ip, method, url, fiber.StatusUnauthorized, "Missing Bearer token")
+			utils.LogAudit(c, "AUTH_FAIL", "Missing Bearer token")
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized"})
 		}
 		tokenStr = strings.TrimPrefix(tokenStr, "Bearer ")
@@ -26,13 +22,13 @@ func AuthRequired() fiber.Handler {
 			return []byte(appCtx.Config.Token), nil
 		})
 		if err != nil || !token.Valid {
-			LogAudit("AUTH_FAIL", "", "", "", ip, method, url, fiber.StatusUnauthorized, "Invalid JWT token")
+			utils.LogAudit(c, "AUTH_FAIL", "Invalid JWT token")
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid token"})
 		}
 
 		claims, ok := token.Claims.(jwt.MapClaims)
 		if !ok {
-			LogAudit("AUTH_FAIL", "", "", "", ip, method, url, fiber.StatusUnauthorized, "Invalid claims")
+			utils.LogAudit(c, "AUTH_FAIL", "Invalid claims")
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid token claims"})
 		}
 
@@ -49,7 +45,7 @@ func PublicAccess() fiber.Handler {
 		ctx := utils.SetGuestContext(c.Context(), c.IP())
 		c.SetUserContext(ctx)
 
-		LogAudit("GUEST_ACCESS", "00000000-0000-0000-0000-000000000000", "Guest", "", c.IP(), c.Method(), c.OriginalURL(), fiber.StatusOK, "")
+		utils.LogAudit(c, "GUEST_ACCESS", "Guest")
 		return c.Next()
 	}
 }
@@ -64,7 +60,7 @@ func AdminOnly() fiber.Handler {
 		// ✅ Use role names from appCtx
 		cfg := appCtx.Config
 		if role != cfg.Roles.SuperAdmin && role != cfg.Roles.AdminEselon1 {
-			LogAudit("FORBIDDEN", "", "", "", c.IP(), c.Method(), c.OriginalURL(), fiber.StatusForbidden, "Admin access required")
+			utils.LogAudit(c, "FORBIDDEN", "Admin access required")
 			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 				"error": "Admin access required",
 			})

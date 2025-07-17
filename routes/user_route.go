@@ -21,5 +21,15 @@ func UserRoutesV1(r fiber.Router, ctrl *controllers.UserController) {
 
 	// 🌐 PublicAccess routes (no auth)
 	user.Post("/signup", middleware.With(ctrl.SignupUser, public...)...)
+	//
+	//user.Post("", ctrl.CreateUser)
+	//user.Put("", ctrl.UpdateUser)
+	//user.Delete("/:id", ctrl.DeleteUser)
+	//user.Get("", ctrl.GetAllUsers)
+	//user.Get("/:id", ctrl.GetUserByID)
+	//user.Post("/approve", ctrl.ApproveUser)
+	//
+	//🌐 PublicAccess routes (no auth)
+	//user.Post("/signup", ctrl.SignupUser)
 
 }

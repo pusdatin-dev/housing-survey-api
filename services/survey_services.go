@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -46,9 +45,6 @@ func (s *surveyService) GetAllSurveys(ctx *fiber.Ctx) models.ServiceResponse {
 		db = db.Where("address LIKE ?", "%"+address+"%")
 	}
 	if userId := ctx.Query("user_id"); userId != "" {
-		if _, err := uuid.Parse(userId); err != nil {
-			return models.BadRequestResponse("Invalid user ID format")
-		}
 		db = db.Where("user_id = ?", userId)
 	}
 	if types := ctx.Query("types"); types != "" {
@@ -122,7 +118,7 @@ func (s *surveyService) GetSurveyDetail(ctx *fiber.Ctx, id string) models.Servic
 	if err := s.Db.Where("id = ? AND deleted_at IS NULL", id).First(&survey).Error; err != nil {
 		return models.InternalServerErrorResponse("Failed to retrieve survey")
 	}
-	if survey.ID == uuid.Nil {
+	if &survey == nil {
 		return models.NotFoundResponse("Survey not found")
 	}
 	return models.OkResponse(fiber.StatusOK, "Survey retrieved successfully", survey.ToResponse())
@@ -135,14 +131,13 @@ func (s *surveyService) CreateSurvey(ctx *fiber.Ctx, input models.SurveyInput) m
 		return models.BadRequestResponse(err.Error())
 	}
 	survey := input.ToSurvey()
-	survey.ID = uuid.New() // Generate a new UUID for the survey
 
 	userID, err := utils.GetUserIDFromContext(ctx)
 	if err != nil {
 		return models.InternalServerErrorResponse("Cannot find UserID in token")
 	}
-
-	if userID != survey.UserID.String() {
+	utils.LogAudit(ctx, "START", "API entered")
+	if userID != int(survey.UserID) {
 		return models.BadRequestResponse("Cannot create survey for another user")
 	}
 
@@ -164,7 +159,7 @@ func (s *surveyService) UpdateSurvey(ctx *fiber.Ctx, survey models.SurveyInput) 
 		return models.InternalServerErrorResponse("Cannot find UserID in token")
 	}
 
-	if userID != survey.UserID.String() {
+	if userID != int(survey.UserID) {
 		return models.BadRequestResponse("Cannot update survey for another user")
 	}
 
@@ -198,11 +193,11 @@ func (s *surveyService) DeleteSurvey(ctx *fiber.Ctx, id string) models.ServiceRe
 		return models.InternalServerErrorResponse(fmt.Sprintf("Failed to retrieve survey with id %s", id))
 	}
 
-	if userID != survey.UserID.String() {
+	if userID != int(survey.UserID) {
 		return models.BadRequestResponse("Cannot delete survey for another user")
 	}
 
-	survey.DeletedBy = userID
+	survey.DeletedBy = fmt.Sprint(userID)
 	survey.DeletedAt = gorm.DeletedAt{
 		Time:  time.Now(),
 		Valid: true,

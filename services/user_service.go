@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
@@ -128,9 +127,9 @@ func (s *userService) CreateUser(ctx *fiber.Ctx, input models.UserInput) models.
 	}
 
 	// Validate creation permission based on actor's role
-	allowedRoles := map[string][]uint{
-		strconv.Itoa(int(superAdmin.ID)):   {adminEselon1.ID, adminBalai.ID},
-		strconv.Itoa(int(adminEselon1.ID)): {verificatorEselon1.ID},
+	allowedRoles := map[int][]uint{
+		int(superAdmin.ID):   {adminEselon1.ID, adminBalai.ID},
+		int(adminEselon1.ID): {verificatorEselon1.ID},
 	}
 
 	if !slices.Contains(allowedRoles[actorRoleID], input.RoleID) {
@@ -341,7 +340,7 @@ func (s *userService) GetAllUsers(ctx *fiber.Ctx) models.ServiceResponse {
 }
 
 func (s *userService) GetUserByID(ctx *fiber.Ctx, userID string) models.ServiceResponse {
-	parsedID, err := uuid.Parse(userID)
+	parsedID, err := strconv.Atoi(userID)
 	if err != nil {
 		return models.BadRequestResponse("Invalid user ID format")
 	}
@@ -356,12 +355,12 @@ func (s *userService) GetUserByID(ctx *fiber.Ctx, userID string) models.ServiceR
 	}
 
 	// Self-access allowed
-	if actorID == userID {
-		return s.returnUserDetail(parsedID)
+	if actorID == parsedID {
+		return s.returnUserDetail(uint(parsedID))
 	}
 
 	// Fetch target user
-	user, err := s.fetchUserDetail(parsedID)
+	user, err := s.fetchUserDetail(uint(parsedID))
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return models.NotFoundResponse("User not found")
@@ -377,7 +376,7 @@ func (s *userService) GetUserByID(ctx *fiber.Ctx, userID string) models.ServiceR
 	return models.OkResponse(fiber.StatusOK, "User detail retrieved successfully", user.ToResponse())
 }
 
-func (s *userService) returnUserDetail(userID uuid.UUID) models.ServiceResponse {
+func (s *userService) returnUserDetail(userID uint) models.ServiceResponse {
 	user, err := s.fetchUserDetail(userID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -388,7 +387,7 @@ func (s *userService) returnUserDetail(userID uuid.UUID) models.ServiceResponse 
 	return models.OkResponse(fiber.StatusOK, "User detail retrieved successfully", user.ToResponse())
 }
 
-func (s *userService) fetchUserDetail(userID uuid.UUID) (*models.User, error) {
+func (s *userService) fetchUserDetail(userID uint) (*models.User, error) {
 	var user models.User
 	err := s.Db.Preload("Role").Preload("Profile").
 		Where("id = ? AND deleted_at IS NULL", userID).
@@ -397,12 +396,6 @@ func (s *userService) fetchUserDetail(userID uuid.UUID) (*models.User, error) {
 }
 
 func (s *userService) UpdateUser(ctx *fiber.Ctx, input models.UserInput) models.ServiceResponse {
-	// Parse UUID from input
-	parsedID, err := uuid.Parse(input.ID)
-	if err != nil {
-		return models.BadRequestResponse("Invalid user ID format")
-	}
-
 	// Get actor info
 	actorID, err := utils.GetUserIDFromContext(ctx)
 	if err != nil {
@@ -417,7 +410,7 @@ func (s *userService) UpdateUser(ctx *fiber.Ctx, input models.UserInput) models.
 	isSelf := actorID == input.ID
 
 	// Fetch target user
-	user, err := s.fetchUserDetail(parsedID)
+	user, err := s.fetchUserDetail(uint(input.ID))
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return models.NotFoundResponse("User not found")
@@ -446,7 +439,7 @@ func (s *userService) UpdateUser(ctx *fiber.Ctx, input models.UserInput) models.
 		}
 
 		user.Profile.Name = input.Name
-		user.Profile.BalaiID = input.BalaiID
+		user.Profile.BalaiID = &input.BalaiID
 		user.Profile.SKNo = input.SKNo
 		user.Profile.SKDate = input.SKDate
 		user.Profile.File = input.File
@@ -465,7 +458,7 @@ func (s *userService) UpdateUser(ctx *fiber.Ctx, input models.UserInput) models.
 }
 
 func (s *userService) DeleteUser(ctx *fiber.Ctx, userID string) models.ServiceResponse {
-	parsedID, err := uuid.Parse(userID)
+	parsedID, err := strconv.Atoi(userID)
 	if err != nil {
 		return models.BadRequestResponse("Invalid user ID format")
 	}
@@ -480,12 +473,12 @@ func (s *userService) DeleteUser(ctx *fiber.Ctx, userID string) models.ServiceRe
 	}
 
 	// Self-deletion allowed
-	if actorID == userID {
-		return s.deleteUser(parsedID, actorID)
+	if actorID == parsedID {
+		return s.deleteUser(uint(parsedID), actorID)
 	}
 
 	// Fetch target user
-	targetUser, err := s.fetchUserDetail(parsedID)
+	targetUser, err := s.fetchUserDetail(uint(parsedID))
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return models.NotFoundResponse("User not found")
@@ -498,10 +491,10 @@ func (s *userService) DeleteUser(ctx *fiber.Ctx, userID string) models.ServiceRe
 		return models.ForbiddenResponse("You are not authorized to delete this user")
 	}
 
-	return s.deleteUser(parsedID, actorID)
+	return s.deleteUser(uint(parsedID), actorID)
 }
 
-func (s *userService) deleteUser(userID uuid.UUID, actorID string) models.ServiceResponse {
+func (s *userService) deleteUser(userID uint, actorID int) models.ServiceResponse {
 	var user models.User
 	if err := s.Db.Where("id = ? AND deleted_at IS NULL", userID).First(&user).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -510,7 +503,7 @@ func (s *userService) deleteUser(userID uuid.UUID, actorID string) models.Servic
 		return models.InternalServerErrorResponse("Failed to retrieve user for deletion")
 	}
 
-	user.DeletedBy = actorID
+	user.DeletedBy = fmt.Sprint(actorID)
 	user.DeletedAt = gorm.DeletedAt{Time: time.Now(), Valid: true}
 
 	if err := s.Db.Save(&user).Error; err != nil {

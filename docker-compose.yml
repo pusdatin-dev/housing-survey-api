@@ -1,29 +1,28 @@
-version: '3.9'
-
 services:
   # PostgreSQL Database
   db:
     image: postgres:15
     container_name: survey-db
     environment:
-      POSTGRES_USER: survey_user
-      POSTGRES_PASSWORD: survey_pass
-      POSTGRES_DB: survey_db
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
     volumes:
       - pgdata:/var/lib/postgresql/data
     networks:
       - backend
+    ports:
+      - "5432:5432"
     restart: unless-stopped
 
   # Load Balancer using HAProxy
   haproxy:
-    image: haproxy:2.9
+    build:
+      context: ./haproxy
     container_name: haproxy
     ports:
-      - "80:80"       # App traffic
-      - "8404:8404"   # HAProxy stats
-    volumes:
-      - ./haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg
+      - "8080:8080"
+      - "8404:8404"
     depends_on:
       - app1
       - app2
@@ -36,47 +35,59 @@ services:
   # Go API App Instance 1
   app1:
     build:
-      context: ./app
+      context: .
       dockerfile: Dockerfile
+      target: ${DOCKER_TARGET}
     container_name: go-api-1
-    environment:
-      - APP_ENV=development
+    env_file:
+      - .env.migrator
     expose:
       - "8080"
     networks:
       - frontend
       - backend
     restart: unless-stopped
+    command: ${DOCKER_CMD}
+    volumes:
+      - .:/app
 
   # Go API App Instance 2
   app2:
     build:
-      context: ./app
+      context: .
       dockerfile: Dockerfile
+      target: ${DOCKER_TARGET}
     container_name: go-api-2
-    environment:
-      - APP_ENV=development
+    env_file:
+      - .env
     expose:
       - "8080"
     networks:
       - frontend
       - backend
     restart: unless-stopped
+    command: ${DOCKER_CMD}
+    volumes:
+      - .:/app
 
   # Go API App Instance 3
   app3:
     build:
-      context: ./app
+      context: .
       dockerfile: Dockerfile
+      target: ${DOCKER_TARGET}
     container_name: go-api-3
-    environment:
-      - APP_ENV=development
+    env_file:
+      - .env
     expose:
       - "8080"
     networks:
       - frontend
       - backend
     restart: unless-stopped
+    command: ${DOCKER_CMD}
+    volumes:
+      - .:/app
 
 # Named volumes
 volumes:

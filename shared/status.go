@@ -11,4 +11,10 @@ var (
 	Pending  = "Pending"  // General Pending Status
 	Approved = "Approved" // General Approved Status
 	Rejected = "Rejected" // General Rejected Status
+
+	StatusRealProses  = "Proses Pembangunan"
+	StatusRealSelesai = "Sudah Realisasi"
+
+	Create = "create"
+	Update = "update"
 )
