@@ -30,7 +30,6 @@ tmp/
 
 # Environment variables
 .env
-.env.*
 
 # IDE settings
 .idea/
@@ -50,3 +49,8 @@ Thumbs.db
 *.sqlite3
 *.db
 *.sqlite
+
+.git
+*.md
+node_modules
+air.toml

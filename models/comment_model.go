@@ -3,7 +3,6 @@ package models
 import (
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"gorm.io/gorm"
 )
@@ -11,12 +10,14 @@ import (
 var _ = pq.StringArray{}
 
 type Comment struct {
-	ID       uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4();primaryKey"`
-	SurveyID uuid.UUID `gorm:"type:uuid;index"`
-	Survey   Survey
-	Name     string         `gorm:"not null"`
-	Detail   string         `gorm:"type:text"`
-	Images   pq.StringArray `gorm:"type:text[]"`
+	ID         uint           `gorm:"primaryKey;autoIncrement"`
+	SurveyID   uint           `gorm:"index"`
+	ParentID   uint           `gorm:"index"`
+	IsResolved bool           `gorm:"default:false"`
+	Name       string         `gorm:"not null"`
+	Detail     string         `gorm:"type:text"`
+	Images     pq.StringArray `gorm:"type:text[]"`
+	Survey     Survey
 
 	CreatedBy string `gorm:"type:text"` // could be commenter name
 	UpdatedBy string `gorm:"type:text"`
@@ -27,24 +28,28 @@ type Comment struct {
 }
 
 type CommentResponse struct {
-	ID        string         `json:"id"`
-	SurveyID  string         `json:"survey_id"`
-	Name      string         `json:"name"`
-	Detail    string         `json:"detail"`
-	Images    pq.StringArray `json:"images"`
-	Address   string         `json:"address"`
-	CreatedBy string         `json:"created_by"`
+	ID         uint           `json:"id"`
+	SurveyID   uint           `json:"survey_id"`
+	ParentID   uint           `json:"parent_id"`
+	SurveyName string         `json:"survey_name"`
+	Name       string         `json:"name"`
+	Detail     string         `json:"detail"`
+	IsResolved bool           `json:"is_resolved"`
+	Images     pq.StringArray `json:"images"`
+	CreatedBy  string         `json:"created_by"`
 }
 
 func (c *Comment) ToResponse() CommentResponse {
 	return CommentResponse{
-		ID:        c.ID.String(),
-		SurveyID:  c.SurveyID.String(),
-		Name:      c.Name,
-		Detail:    c.Detail,
-		Images:    c.Images,
-		Address:   c.Survey.Address,
-		CreatedBy: c.CreatedBy,
+		ID:         c.ID,
+		SurveyID:   c.SurveyID,
+		ParentID:   c.ParentID,
+		SurveyName: c.Survey.Name,
+		Name:       c.Name,
+		Detail:     c.Detail,
+		IsResolved: c.IsResolved,
+		Images:     c.Images,
+		CreatedBy:  c.CreatedBy,
 	}
 }
 
@@ -57,20 +62,24 @@ func ToCommentResponses(comments []Comment) []CommentResponse {
 }
 
 type CommentInput struct {
-	SurveyID uuid.UUID `json:"survey_id"`
-	Name     string    `json:"name"`
-	Detail   string    `json:"detail"`
-	Images   []string  `json:"images"`
-	Actor    string    `json:"-"`
+	SurveyID   uint     `json:"survey_id"`
+	ParentID   uint     `json:"parent_id"`
+	Name       string   `json:"name"`
+	Detail     string   `json:"detail"`
+	IsResolved bool     `json:"is_resolved"`
+	Images     []string `json:"images"`
+	Actor      string   `json:"-"`
 }
 
 func (i CommentInput) ToComment() Comment {
 	return Comment{
-		SurveyID:  i.SurveyID,
-		Name:      i.Name,
-		Detail:    i.Detail,
-		Images:    i.Images,
-		CreatedBy: i.Actor,
-		UpdatedBy: i.Actor,
+		SurveyID:   i.SurveyID,
+		ParentID:   i.ParentID,
+		Name:       i.Name,
+		Detail:     i.Detail,
+		IsResolved: i.IsResolved,
+		Images:     i.Images,
+		CreatedBy:  i.Actor,
+		UpdatedBy:  i.Actor,
 	}
 }

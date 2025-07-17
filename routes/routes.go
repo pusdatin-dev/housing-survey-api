@@ -10,6 +10,10 @@ import (
 )
 
 func SetupRoutes(app *fiber.App, ctrl *controllers.ControllerRegistry) {
+	app.Get("/health", func(c *fiber.Ctx) error {
+		return c.SendStatus(fiber.StatusOK)
+	})
+
 	v1 := app.Group("/api/v1")
 
 	AuthRoutes(v1, ctrl.Auth) // /login, /signup
@@ -17,10 +21,6 @@ func SetupRoutes(app *fiber.App, ctrl *controllers.ControllerRegistry) {
 	CommentRoutes(v1, ctrl.Comment)
 	SurveyRoutesV1(v1, ctrl.Survey)
 	AuditLogRoutes(v1, ctrl.AuditLog)
-	app.Get("/health", func(c *fiber.Ctx) error {
-		return c.SendStatus(fiber.StatusOK)
-	})
-
 }
 
 func PrintRoutes(app *fiber.App) {

@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -12,7 +11,6 @@ import (
 	"housing-survey-api/config"
 	"housing-survey-api/controllers"
 	appcontext "housing-survey-api/internal/context"
-	"housing-survey-api/middleware"
 	"housing-survey-api/models"
 	"housing-survey-api/routes"
 	"housing-survey-api/seed"
@@ -25,11 +23,20 @@ func main() {
 	cfg := config.LoadConfig()
 	db := config.InitDB(cfg)
 
-	if cfg.DBSeed {
-		fmt.Println("Running database seeder...")
-		seed.RunSeeder(db, cfg)
+	if cfg.AppRole == "migrator" {
+		log.Println("🛠️  Running AutoMigrate...")
+		if err := models.MigrateAll(db); err != nil {
+			log.Fatalf("❌ Failed to auto-migrate models: %v", err)
+		}
+
+		if cfg.DBSeed {
+			log.Println("🌱 Running database seeder...")
+			seed.RunSeeder(db, cfg)
+		}
+		log.Println("✅ Migration & seeding complete")
+	} else {
+		log.Println("🚫 Skipping migration & seeding on worker")
 	}
-	fmt.Println("Finish database seeder")
 
 	appCtx := &appcontext.AppContext{
 		DB:     db,
@@ -45,7 +52,7 @@ func main() {
 	})
 
 	// Setup middleware and routes
-	middleware.InitMiddleware(appCtx)
+	//middleware.InitMiddleware(appCtx)
 	routes.SetupRoutes(app, ctrl)
 	routes.PrintRoutes(app)
 

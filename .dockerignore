@@ -1,0 +1,15 @@
+# Ignore these directories in Docker build context
+tmp/
+build/
+storage/tmp/
+*.log
+
+# Ignore version control
+.git
+.gitignore
+.air.toml
+
+# Node/npm or other IDE artifacts
+node_modules/
+.idea/
+.vscode/
