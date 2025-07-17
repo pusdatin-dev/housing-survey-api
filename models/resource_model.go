@@ -1,8 +1,9 @@
 package models
 
 import (
-	"housing-survey-api/shared"
 	"time"
+
+	"housing-survey-api/shared"
 
 	"gorm.io/gorm"
 )
@@ -42,7 +43,7 @@ func (i *ResourceInput) Validate() error {
 	})
 }
 
-func (i *ResourceInput) ToResource() Resource {
+func (i *ResourceInput) ToModel() Resource {
 	return Resource{
 		ID:            i.ID,
 		Name:          i.Name,
@@ -59,11 +60,16 @@ func (m *Resource) Update(newM *Resource) {
 	m.UpdatedAt = time.Now()
 }
 
-func (m *Resource) UpdateFromInput(i ResourceInput) {
+func (m *Resource) UpdateFromInput(i *ResourceInput) {
 	m.Name = i.Name
 	m.ProgramTypeID = i.ProgramTypeID
 	m.UpdatedBy = i.Actor
 	m.UpdatedAt = time.Now()
+}
+
+func (m *Resource) MarkDeleted(actor string) {
+	m.DeletedBy = actor
+	m.DeletedAt = gorm.DeletedAt{Time: time.Now(), Valid: true}
 }
 
 func (m *Resource) ToResponse() ResourceResponse {

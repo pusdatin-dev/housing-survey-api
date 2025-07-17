@@ -1,8 +1,9 @@
 package models
 
 import (
-	"housing-survey-api/shared"
 	"time"
+
+	"housing-survey-api/shared"
 
 	"gorm.io/gorm"
 )
@@ -37,7 +38,7 @@ func (i *ProgramTypeInput) Validate() error {
 	})
 }
 
-func (i *ProgramTypeInput) ToProgramType() ProgramType {
+func (i *ProgramTypeInput) ToModel() ProgramType {
 	return ProgramType{
 		ID:        i.ID,
 		Name:      i.Name,
@@ -52,10 +53,15 @@ func (m *ProgramType) Update(newM *ProgramType) {
 	m.UpdatedAt = time.Now()
 }
 
-func (m *ProgramType) UpdateFromInput(i ProgramTypeInput) {
+func (m *ProgramType) UpdateFromInput(i *ProgramTypeInput) {
 	m.Name = i.Name
 	m.UpdatedBy = i.Actor
 	m.UpdatedAt = time.Now()
+}
+
+func (m *ProgramType) MarkDeleted(actor string) {
+	m.DeletedBy = actor
+	m.DeletedAt = gorm.DeletedAt{Time: time.Now(), Valid: true}
 }
 
 func (m *ProgramType) ToResponse() ProgramTypeResponse {

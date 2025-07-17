@@ -69,3 +69,23 @@ func AdminOnly() fiber.Handler {
 		return c.Next()
 	}
 }
+
+func SurveyorOnly() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		role, err := utils.GetRoleNameFromContext(c)
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError, "Failed to extract role")
+		}
+
+		// ✅ Use role names from appCtx
+		cfg := appCtx.Config
+		if role != cfg.Roles.Surveyor {
+			utils.LogAudit(c, "FORBIDDEN", "Surveyor access required")
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"error": "Surveyor access required",
+			})
+		}
+
+		return c.Next()
+	}
+}

@@ -1,8 +1,9 @@
 package models
 
 import (
-	"housing-survey-api/shared"
 	"time"
+
+	"housing-survey-api/shared"
 
 	"gorm.io/gorm"
 )
@@ -23,7 +24,7 @@ type Village struct {
 	DeletedAt gorm.DeletedAt `gorm:"index"`
 }
 
-func (v *Village) UpdateFromInput(input VillageInput) {
+func (v *Village) UpdateFromInput(input *VillageInput) {
 	v.Name = input.Name
 	v.SubdistrictID = input.SubdistrictID
 	v.UpdatedBy = input.Actor
@@ -35,6 +36,11 @@ func (v *Village) Update(newVillage *Village) {
 	v.SubdistrictID = newVillage.SubdistrictID
 	v.UpdatedBy = newVillage.UpdatedBy
 	v.UpdatedAt = time.Now()
+}
+
+func (v *Village) MarkDeleted(actor string) {
+	v.DeletedBy = actor
+	v.DeletedAt = gorm.DeletedAt{Time: time.Now(), Valid: true}
 }
 
 func (v *Village) ToResponse() VillageResponse {
@@ -77,7 +83,7 @@ func (v *VillageInput) Validate() error {
 	return shared.CustomValidate(v, custom)
 }
 
-func (v *VillageInput) ToVillage() Village {
+func (v *VillageInput) ToModel() Village {
 	now := time.Now()
 	return Village{
 		ID:            v.ID,

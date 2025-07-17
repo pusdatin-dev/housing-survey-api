@@ -1,8 +1,9 @@
 package models
 
 import (
-	"housing-survey-api/shared"
 	"time"
+
+	"housing-survey-api/shared"
 
 	"gorm.io/gorm"
 )
@@ -22,7 +23,7 @@ type Program struct {
 	DeletedAt gorm.DeletedAt `gorm:"index"`
 }
 
-func (p *Program) UpdateFromInput(input ProgramInput) {
+func (p *Program) UpdateFromInput(input *ProgramInput) {
 	p.Name = input.Name
 	p.ResourceID = input.ResourceID
 	p.UpdatedBy = input.Actor
@@ -34,6 +35,11 @@ func (p *Program) Update(newProgram *Program) {
 	p.ResourceID = newProgram.ResourceID
 	p.UpdatedBy = newProgram.UpdatedBy
 	p.UpdatedAt = time.Now()
+}
+
+func (p *Program) MarkDeleted(actor string) {
+	p.DeletedBy = actor
+	p.DeletedAt = gorm.DeletedAt{Time: time.Now(), Valid: true}
 }
 
 func (p *Program) ToResponse() ProgramResponse {
@@ -76,7 +82,7 @@ func (p *ProgramInput) Validate() error {
 	return shared.CustomValidate(p, custom)
 }
 
-func (p *ProgramInput) ToProgram() Program {
+func (p *ProgramInput) ToModel() Program {
 	now := time.Now()
 	return Program{
 		ID:         p.ID,
