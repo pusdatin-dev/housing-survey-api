@@ -42,7 +42,7 @@ func (c *AuthController) Login(ctx *fiber.Ctx) error {
 	}
 
 	claims := jwt.MapClaims{
-		"user_id":    user.ID.String(),
+		"user_id":    fmt.Sprint(user.ID),
 		"role_id":    user.Role.ID,
 		"role_name":  user.Role.Name,
 		"user_email": user.Email,
@@ -70,7 +70,7 @@ func (c *AuthController) Logout(ctx *fiber.Ctx) error {
 	userID, err := utils.GetUserIDFromContext(ctx)
 	if err != nil {
 		fmt.Println("Failed to extract user_id from token:", err)
-		return utils.ToFiberJSON(ctx, models.ErrResponse(401, "Unauthorized"))
+		return utils.ToFiberJSON(ctx, models.ErrResponse(402, "Unauthorizeds"))
 	}
 
 	err = c.Db.Model(&models.User{}).

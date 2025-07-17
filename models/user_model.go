@@ -1,22 +1,22 @@
 package models
 
 import (
-	"housing-survey-api/shared"
 	"time"
 
-	"github.com/google/uuid"
+	"housing-survey-api/shared"
+
 	"gorm.io/gorm"
 )
 
 type User struct {
-	ID       uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4();primaryKey"`
-	Email    string    `gorm:"uniqueIndex;not null"`
-	Password string    `gorm:"not null"`
-	Token    *string
-	IsActive bool `gorm:"default:false"`
-	RoleID   uint `gorm:"index"`
-	Role     Role
+	ID       uint    `gorm:"primaryKey;autoIncrement"`
+	Email    string  `gorm:"uniqueIndex;not null"`
+	Password string  `gorm:"not null"`
+	IsActive bool    `gorm:"default:false"`
+	RoleID   uint    `gorm:"index"`
 	Profile  Profile `gorm:"constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
+	Token    *string
+	Role     Role
 
 	CreatedBy string `gorm:"type:text"`
 	UpdatedBy string `gorm:"type:text"`
@@ -27,7 +27,7 @@ type User struct {
 }
 
 type UserResponse struct {
-	ID       string    `json:"id"`
+	ID       uint      `json:"id"`
 	Email    string    `json:"email"`
 	IsActive bool      `json:"is_active"`
 	RoleID   uint      `json:"role_id"`
@@ -41,13 +41,13 @@ type UserResponse struct {
 
 func (u *User) ToResponse() UserResponse {
 	return UserResponse{
-		ID:       u.ID.String(),
+		ID:       u.ID,
 		Email:    u.Email,
 		IsActive: u.IsActive,
 		RoleID:   u.RoleID,
 		RoleName: u.Role.Name,
 		Name:     u.Profile.Name,
-		BalaiID:  u.Profile.BalaiID,
+		BalaiID:  *u.Profile.BalaiID,
 		SKNo:     u.Profile.SKNo,
 		SKDate:   u.Profile.SKDate,
 		File:     u.Profile.File,
@@ -63,7 +63,7 @@ func ToUserResponses(users []User) []UserResponse {
 }
 
 type UserInput struct {
-	ID       string    `json:"id"` // Optional, for updates. Should be a valid UUID.
+	ID       int       `json:"id"` // Optional, for updates. Should be a valid UUID.
 	Email    string    `json:"email" validate:"required,email"`
 	Password string    `json:"password" validate:"required,min=6"`
 	RoleID   uint      `json:"role_id" validate:"required"`
@@ -84,7 +84,7 @@ func (u *UserInput) ToUser() User {
 		RoleID:   u.RoleID,
 		Profile: Profile{
 			Name:      u.Name,
-			BalaiID:   u.BalaiID,
+			BalaiID:   &u.BalaiID,
 			SKNo:      u.SKNo,
 			SKDate:    u.SKDate,
 			File:      u.File,

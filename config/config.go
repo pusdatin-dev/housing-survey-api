@@ -9,9 +9,10 @@ import (
 
 type Config struct {
 	DBConfig
-	DBSeed bool
-	Roles  RolesConfig
-	Token  string
+	DBSeed  bool
+	Roles   RolesConfig
+	Token   string
+	AppRole string
 }
 
 type DBConfig struct {
@@ -61,6 +62,7 @@ func LoadConfig() *Config {
 		DBSeed:   getEnv("DB_SEED", "false") == "true",
 		Roles:    rolesConfig,
 		Token:    getEnv("JWT_SECRET", ""),
+		AppRole:  getEnv("APP_ROLE", "api"),
 	}
 }
 

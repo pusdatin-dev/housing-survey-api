@@ -22,4 +22,15 @@ func SurveyRoutesV1(v1 fiber.Router, ctrl *controllers.SurveyController) {
 	// 🌐 PublicAccess routes (no auth)
 	survey.Get("/", middleware.With(ctrl.GetAllSurveys, public...)...)
 	survey.Get("/:id", middleware.With(ctrl.GetSurveyByID, public...)...)
+
+	//// 🔐 Auth-required routes
+	//survey.Post("", ctrl.CreateSurvey)
+	//survey.Put("", ctrl.UpdateSurvey)
+	//survey.Delete("/:id", ctrl.DeleteSurvey)
+	//survey.Post("/action", ctrl.ActionSurvey)
+	//// --> add api for infografis balai (survey	by balai->masuk,reject, pending eselon, verif), laporan per bulan,
+	//
+	//// 🌐 PublicAccess routes (no auth)
+	//survey.Get("", ctrl.GetAllSurveys)
+	//survey.Get("/:id", ctrl.GetSurveyByID)
 }

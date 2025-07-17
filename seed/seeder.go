@@ -9,7 +9,8 @@ import (
 func RunSeeder(db *gorm.DB, cfg *config.Config) {
 	// Call all seed functions here
 	RoleSeed(db, cfg)
-	BalaiSeed(db)
+	//MasterDataSeed(db)
+	//BalaiSeed(db)
 	UsersSeedWithProfiles(db, cfg)
 	// Add more seed functions as needed
 	// For example: UserSeed(db), SurveySeed(db), etc.

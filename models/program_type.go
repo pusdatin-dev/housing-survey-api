@@ -7,9 +7,10 @@ import (
 	"gorm.io/gorm"
 )
 
-type Role struct {
+// ProgramType Master Data
+type ProgramType struct {
 	ID        uint   `gorm:"primaryKey;autoIncrement"`
-	Name      string `gorm:"uniqueIndex"`
+	Name      string `gorm:"type:text;not null"`
 	CreatedBy string `gorm:"type:text"`
 	UpdatedBy string `gorm:"type:text"`
 	DeletedBy string `gorm:"type:text"`
@@ -18,26 +19,26 @@ type Role struct {
 	DeletedAt gorm.DeletedAt `gorm:"index"`
 }
 
-type RoleInput struct {
+type ProgramTypeInput struct {
 	ID    uint   `json:"id"`
 	Name  string `json:"name" validate:"required"`
 	Actor string `json:"-"`
-	Mode  string `json:"-"`
+	Mode  string `json:"-"` // "create" or "update"
 }
 
-type RoleResponse struct {
+type ProgramTypeResponse struct {
 	ID   uint   `json:"id"`
 	Name string `json:"name"`
 }
 
-func (i *RoleInput) Validate() error {
+func (i *ProgramTypeInput) Validate() error {
 	return shared.CustomValidate(i, map[string]string{
-		"Name.required": "Role name is required",
+		"Name.required": "Program type name is required",
 	})
 }
 
-func (i *RoleInput) ToRole() Role {
-	return Role{
+func (i *ProgramTypeInput) ToProgramType() ProgramType {
+	return ProgramType{
 		ID:        i.ID,
 		Name:      i.Name,
 		CreatedBy: i.Actor,
@@ -45,27 +46,27 @@ func (i *RoleInput) ToRole() Role {
 	}
 }
 
-func (m *Role) Update(newM *Role) {
+func (m *ProgramType) Update(newM *ProgramType) {
 	m.Name = newM.Name
 	m.UpdatedBy = newM.UpdatedBy
 	m.UpdatedAt = time.Now()
 }
 
-func (m *Role) UpdateFromInput(i RoleInput) {
+func (m *ProgramType) UpdateFromInput(i ProgramTypeInput) {
 	m.Name = i.Name
 	m.UpdatedBy = i.Actor
 	m.UpdatedAt = time.Now()
 }
 
-func (m *Role) ToResponse() RoleResponse {
-	return RoleResponse{
+func (m *ProgramType) ToResponse() ProgramTypeResponse {
+	return ProgramTypeResponse{
 		ID:   m.ID,
 		Name: m.Name,
 	}
 }
 
-func ToRoleResponses(models []Role) []RoleResponse {
-	res := make([]RoleResponse, len(models))
+func ToProgramTypeResponses(models []ProgramType) []ProgramTypeResponse {
+	res := make([]ProgramTypeResponse, len(models))
 	for i, m := range models {
 		res[i] = m.ToResponse()
 	}

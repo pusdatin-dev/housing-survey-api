@@ -3,16 +3,15 @@ package models
 import (
 	"time"
 
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
 type Profile struct {
-	ID      uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4();primaryKey"`
-	Name    string    `gorm:"not null"`
-	UserID  uuid.UUID `gorm:"type:uuid;uniqueIndex"`
-	BalaiID uint      `gorm:"index"`
-	Balai   Balai
+	ID      uint   `gorm:"primaryKey;autoIncrement"`
+	Name    string `gorm:"not null"`
+	UserID  uint   `gorm:"uniqueIndex"`
+	BalaiID *uint  `gorm:"index"`                                          // ✅ Nullable foreign key
+	Balai   *Balai `gorm:"constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"` // ✅ Proper foreign key behavior
 	SKNo    string
 	SKDate  time.Time
 	File    string

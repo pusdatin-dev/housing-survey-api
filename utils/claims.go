@@ -2,8 +2,11 @@ package utils
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -86,8 +89,8 @@ func extractBearerToken(c *fiber.Ctx) (string, error) {
 // Context Access Helpers
 // ======================
 
-func GetUserIDFromContext(c *fiber.Ctx) (string, error) {
-	return getClaimString(c, "user_id")
+func GetUserIDFromContext(c *fiber.Ctx) (int, error) {
+	return getClaimInt(c, "user_id")
 }
 
 func GetUserEmailFromContext(c *fiber.Ctx) (string, error) {
@@ -98,8 +101,8 @@ func GetUserNameFromContext(c *fiber.Ctx) (string, error) {
 	return getClaimString(c, "user_name")
 }
 
-func GetRoleIDFromContext(c *fiber.Ctx) (string, error) {
-	return getClaimString(c, "role_id")
+func GetRoleIDFromContext(c *fiber.Ctx) (int, error) {
+	return getClaimInt(c, "role_id")
 }
 
 func GetRoleNameFromContext(c *fiber.Ctx) (string, error) {
@@ -117,6 +120,35 @@ func getClaimString(c *fiber.Ctx, key string) (string, error) {
 		return "", fmt.Errorf("claim '%s' not found", key)
 	}
 	return fmt.Sprint(val), nil
+}
+
+func getClaimInt(c *fiber.Ctx, key string) (int, error) {
+	claims, err := GetClaims(c)
+	if err != nil {
+		return 0, err
+	}
+
+	val, ok := claims[key]
+	if !ok {
+		return 0, fmt.Errorf("claim '%s' not found", key)
+	}
+
+	switch v := val.(type) {
+	case float64:
+		return int(v), nil
+	case float32:
+		return int(v), nil
+	case int:
+		return v, nil
+	case int64:
+		return int(v), nil
+	case json.Number:
+		return strconv.Atoi(v.String())
+	case string:
+		return strconv.Atoi(v)
+	default:
+		return 0, errors.New("unsupported type for claim '" + key + "'")
+	}
 }
 
 // ======================
