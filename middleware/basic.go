@@ -42,6 +42,11 @@ func (m *Set) Admin() *Set {
 	return m.Custom(AuthRequired(), AdminOnly()).Basic()
 }
 
+// Surveyor appends AuthRequired, AdminOnly and audit logger
+func (m *Set) Surveyor() *Set {
+	return m.Custom(AuthRequired(), SurveyorOnly()).Basic()
+}
+
 // Custom appends custom handlers
 func (m *Set) Custom(h ...fiber.Handler) *Set {
 	m.handlers = append(m.handlers, h...)
@@ -73,6 +78,11 @@ func PublicHandler(handler fiber.Handler) []fiber.Handler {
 // AdminHandler applies admin middleware to the given handler
 func AdminHandler(handler fiber.Handler) []fiber.Handler {
 	return With(handler, New().Admin().Build()...)
+}
+
+// SurveyorHandler applies admin middleware to the given handler
+func SurveyorHandler(handler fiber.Handler) []fiber.Handler {
+	return With(handler, New().Surveyor().Build()...)
 }
 
 // CustomHandler lets you define an inline chain with a single handler

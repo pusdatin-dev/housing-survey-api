@@ -2,10 +2,11 @@ package controllers
 
 import (
 	"fmt"
+	"net/http"
+
 	"housing-survey-api/models"
 	"housing-survey-api/services"
 	"housing-survey-api/utils"
-	"net/http"
 
 	"github.com/gofiber/fiber/v2"
 )

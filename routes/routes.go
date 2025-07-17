@@ -2,9 +2,10 @@ package routes
 
 import (
 	"fmt"
-	"housing-survey-api/controllers"
 	"reflect"
 	"runtime"
+
+	"housing-survey-api/controllers"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -21,6 +22,15 @@ func SetupRoutes(app *fiber.App, ctrl *controllers.ControllerRegistry) {
 	CommentRoutes(v1, ctrl.Comment)
 	SurveyRoutesV1(v1, ctrl.Survey)
 	AuditLogRoutes(v1, ctrl.AuditLog)
+	BalaiRoutesV1(v1, ctrl.Balai)
+	DistrictRoutesV1(v1, ctrl.District)
+	ProgramRoutesV1(v1, ctrl.Program)
+	ProgramTypeRoutesV1(v1, ctrl.ProgramType)
+	ProvinceRoutesV1(v1, ctrl.Province)
+	ResourceRoutesV1(v1, ctrl.Resource)
+	RoleRoutesV1(v1, ctrl.Role)
+	SubdistrictRoutesV1(v1, ctrl.Subdistrict)
+	VillageRoutesV1(v1, ctrl.Village)
 }
 
 func PrintRoutes(app *fiber.App) {

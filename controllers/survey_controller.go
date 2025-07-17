@@ -6,6 +6,7 @@ import (
 
 	"housing-survey-api/models"
 	"housing-survey-api/services"
+	"housing-survey-api/shared"
 	"housing-survey-api/utils"
 
 	"github.com/gofiber/fiber/v2"
@@ -30,7 +31,7 @@ func (c *SurveyController) CreateSurvey(ctx *fiber.Ctx) error {
 	}
 
 	input.Actor = utils.GetActor(ctx)
-	input.Mode = "create"
+	input.Mode = shared.Create
 	res := c.Survey.CreateSurvey(ctx, input)
 	return utils.ToFiberJSON(ctx, res)
 }
@@ -43,7 +44,7 @@ func (c *SurveyController) UpdateSurvey(ctx *fiber.Ctx) error {
 	}
 
 	input.Actor = utils.GetActor(ctx)
-	input.Mode = "update"
+	input.Mode = shared.Update
 	res := c.Survey.UpdateSurvey(ctx, input)
 	return utils.ToFiberJSON(ctx, res)
 }

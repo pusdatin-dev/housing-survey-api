@@ -9,28 +9,15 @@ import (
 
 func SurveyRoutesV1(v1 fiber.Router, ctrl *controllers.SurveyController) {
 	survey := v1.Group("/surveys")
-	auth := middleware.New().Auth().Build()
-	public := middleware.New().Public().Build()
 
 	// 🔐 Auth-required routes
-	survey.Post("/", middleware.With(ctrl.CreateSurvey, auth...)...)
-	survey.Put("/", middleware.With(ctrl.UpdateSurvey, auth...)...)
-	survey.Delete("/:id", middleware.With(ctrl.DeleteSurvey, auth...)...)
-	survey.Post("/action", middleware.With(ctrl.ActionSurvey, auth...)...)
+	survey.Post("", middleware.SurveyorHandler(ctrl.CreateSurvey)...)
+	survey.Put("", middleware.SurveyorHandler(ctrl.UpdateSurvey)...)
+	survey.Delete("/:id", middleware.SurveyorHandler(ctrl.DeleteSurvey)...)
+	survey.Post("/action", middleware.AuthHandler(ctrl.ActionSurvey)...)
 	// --> add api for infografis balai (survey	by balai->masuk,reject, pending eselon, verif), laporan per bulan,
 
 	// 🌐 PublicAccess routes (no auth)
-	survey.Get("/", middleware.With(ctrl.GetAllSurveys, public...)...)
-	survey.Get("/:id", middleware.With(ctrl.GetSurveyByID, public...)...)
-
-	//// 🔐 Auth-required routes
-	//survey.Post("", ctrl.CreateSurvey)
-	//survey.Put("", ctrl.UpdateSurvey)
-	//survey.Delete("/:id", ctrl.DeleteSurvey)
-	//survey.Post("/action", ctrl.ActionSurvey)
-	//// --> add api for infografis balai (survey	by balai->masuk,reject, pending eselon, verif), laporan per bulan,
-	//
-	//// 🌐 PublicAccess routes (no auth)
-	//survey.Get("", ctrl.GetAllSurveys)
-	//survey.Get("/:id", ctrl.GetSurveyByID)
+	survey.Get("", middleware.PublicHandler(ctrl.GetAllSurveys)...)
+	survey.Get("/:id", middleware.PublicHandler(ctrl.GetSurveyByID)...)
 }
