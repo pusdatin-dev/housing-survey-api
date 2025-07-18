@@ -12,7 +12,7 @@ import (
 // Subdistrict = Kecamatan
 type Subdistrict struct {
 	ID         uint   `gorm:"primaryKey;autoIncrement"`
-	Name       string `gorm:"type:text;uniqueIndex;not null"`
+	Name       string `gorm:"type:text;index;not null"`
 	DistrictID uint   `gorm:"index;not null"`
 	District   District
 

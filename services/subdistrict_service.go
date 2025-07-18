@@ -90,7 +90,7 @@ func (s *subdistrictService) Create(ctx *fiber.Ctx, input *models.SubdistrictInp
 	}
 	data := input.ToModel()
 
-	if err := s.Db.Create(&data).Error; err != nil {
+	if err := s.Db.FirstOrCreate(&data, &models.Subdistrict{ID: data.ID, Name: data.Name, DistrictID: data.DistrictID}).Error; err != nil {
 		return models.InternalServerErrorResponse("Failed to create subdistrict")
 	}
 	return models.OkResponse(http.StatusCreated, "Subdistrict created", data.ToResponse())

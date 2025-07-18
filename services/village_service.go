@@ -90,7 +90,7 @@ func (s *villageService) Create(ctx *fiber.Ctx, input *models.VillageInput) mode
 	}
 	data := input.ToModel()
 
-	if err := s.Db.Create(&data).Error; err != nil {
+	if err := s.Db.FirstOrCreate(&data, &models.Village{ID: data.ID, Name: data.Name, SubdistrictID: data.SubdistrictID}).Error; err != nil {
 		return models.InternalServerErrorResponse("Failed to create village")
 	}
 	return models.OkResponse(http.StatusCreated, "Village created", data.ToResponse())

@@ -15,7 +15,7 @@ import (
 // District Master Data (Kabupaten/Kota)
 type District struct {
 	ID         uint     `gorm:"primaryKey;autoIncrement"`
-	Name       string   `gorm:"type:text;uniqueIndex;not null"`
+	Name       string   `gorm:"type:text;index;not null"`
 	ProvinceID uint     `gorm:"index;not null"`
 	Province   Province `gorm:"foreignKey:ProvinceID"`
 

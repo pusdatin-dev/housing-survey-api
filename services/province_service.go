@@ -90,7 +90,7 @@ func (s *provinceService) Create(ctx *fiber.Ctx, input *models.ProvinceInput) mo
 	}
 	province := input.ToModel()
 
-	if err := s.Db.Create(&province).Error; err != nil {
+	if err := s.Db.FirstOrCreate(&province, &models.Province{ID: province.ID, Name: province.Name}).Error; err != nil {
 		return models.InternalServerErrorResponse("Failed to create province")
 	}
 	return models.OkResponse(http.StatusCreated, "Province created", province.ToResponse())

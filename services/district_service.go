@@ -90,7 +90,7 @@ func (s *districtService) Create(ctx *fiber.Ctx, input *models.DistrictInput) mo
 	}
 	district := input.ToModel()
 
-	if err := s.Db.Create(&district).Error; err != nil {
+	if err := s.Db.FirstOrCreate(&district, &models.District{ID: district.ID, Name: district.Name, ProvinceID: district.ProvinceID}).Error; err != nil {
 		return models.InternalServerErrorResponse("Failed to create district")
 	}
 	return models.OkResponse(http.StatusCreated, "District created", district.ToResponse())
