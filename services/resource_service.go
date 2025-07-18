@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"housing-survey-api/config"
 	"housing-survey-api/internal/context"
@@ -43,6 +44,9 @@ func (s *resourceService) GetAll(ctx *fiber.Ctx) models.ServiceResponse {
 
 	if search := ctx.Query("search"); search != "" {
 		db = db.Where("name ILIKE ?", "%"+search+"%")
+	}
+	if progType := ctx.Query("program_type"); progType != "" {
+		db = db.Where("program_type_id IN ?", strings.Split(progType, ","))
 	}
 
 	page, _ := strconv.Atoi(ctx.Query("page", "1"))

@@ -14,7 +14,7 @@ var _ = pq.StringArray{}
 type Survey struct {
 	ID                uint           `gorm:"primaryKey;autoIncrement"`
 	UserID            uint           `gorm:"index"`
-	Name              string         `gorm:"not null"`
+	Name              string         `gorm:"index;not null"`
 	Address           string         `gorm:"not null"`
 	Type              string         `gorm:"type:text;check:type IN ('Susun', 'Tapak');not null"`
 	MbrStatus         string         `gorm:"type:text;check:mbr_status IN ('MBR', 'Non-MBR');not null"`
