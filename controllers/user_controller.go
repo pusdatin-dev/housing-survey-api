@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"fmt"
+	"housing-survey-api/shared"
 	"net/http"
 
 	"housing-survey-api/models"
@@ -42,6 +43,7 @@ func (c *UserController) CreateUser(ctx *fiber.Ctx) error {
 		return utils.ToFiberJSON(ctx, models.ErrResponse(http.StatusBadRequest, "Invalid input"))
 	}
 	input.Actor = utils.GetActor(ctx)
+	input.Mode = shared.Create
 	res := c.User.CreateUser(ctx, input)
 	return utils.ToFiberJSON(ctx, res)
 }
@@ -66,6 +68,7 @@ func (c *UserController) UpdateUser(ctx *fiber.Ctx) error {
 	}
 
 	input.Actor = utils.GetActor(ctx)
+	input.Mode = shared.Update
 	res := c.User.UpdateUser(ctx, input)
 	return utils.ToFiberJSON(ctx, res)
 }
