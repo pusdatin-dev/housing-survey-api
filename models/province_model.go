@@ -11,7 +11,7 @@ import (
 // Province Master Data
 type Province struct {
 	ID        uint   `gorm:"primaryKey;autoIncrement"`
-	Name      string `gorm:"type:text;uniqueIndex;not null"`
+	Name      string `gorm:"type:text;index;not null"`
 	CreatedBy string `gorm:"type:text"`
 	UpdatedBy string `gorm:"type:text"`
 	DeletedBy string `gorm:"type:text"`
