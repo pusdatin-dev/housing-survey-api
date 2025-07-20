@@ -1,6 +1,7 @@
 package models
 
 import (
+	"database/sql"
 	"time"
 
 	"gorm.io/gorm"
@@ -13,7 +14,7 @@ type Profile struct {
 	BalaiID *uint  `gorm:"index"`                                          // ✅ Nullable foreign key
 	Balai   *Balai `gorm:"constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"` // ✅ Proper foreign key behavior
 	SKNo    string
-	SKDate  time.Time
+	SKDate  sql.NullTime
 	File    string
 
 	CreatedBy string `gorm:"type:text"`
