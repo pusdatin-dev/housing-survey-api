@@ -63,16 +63,17 @@ func ToUserResponses(users []User) []UserResponse {
 }
 
 type UserInput struct {
-	ID       int       `json:"id"` // Optional, for updates. Should be a valid UUID.
+	ID       int       `json:"id" validate:"required_if=Mode update"` // Optional, for updates. Should be a valid UUID.
 	Email    string    `json:"email" validate:"required,email"`
 	Password string    `json:"password" validate:"required,min=6"`
 	RoleID   uint      `json:"role_id" validate:"required"`
-	Name     string    `json:"name"`
+	Name     string    `json:"name" validate:"required"`
 	BalaiID  uint      `json:"balai_id"`
 	SKNo     string    `json:"sk_no"`
 	SKDate   time.Time `json:"sk_date"`
 	File     string    `json:"file"`
 	Actor    string    `json:"-"`
+	Mode     string    `json:"-"`
 }
 
 // ToUser used only in creating a new user
@@ -102,11 +103,13 @@ func (u *UserInput) ToUser() User {
 
 func (u *UserInput) Validate() error {
 	customMessages := map[string]string{
+		"ID.required_if":    "ID is required for update",
 		"Email.required":    "Email is required",
 		"Email.email":       "Email must be a valid email address",
 		"Password.required": "Password is required",
 		"Password.min":      "Password must be at least 6 characters",
 		"RoleID.required":   "Role is required",
+		"Name.required":     "Name is required",
 	}
 	return shared.CustomValidate(u, customMessages)
 }

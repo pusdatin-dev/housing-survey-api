@@ -4,7 +4,7 @@ import "strings"
 
 func SplitAndTrim(types string, s string) []string {
 	var result []string
-	typeList := strings.Split(types, ",")
+	typeList := strings.Split(types, s)
 	for _, item := range typeList {
 		trimmedItem := strings.TrimSpace(item)
 		if trimmedItem != "" {
