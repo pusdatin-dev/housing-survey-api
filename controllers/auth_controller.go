@@ -64,7 +64,7 @@ func (c *AuthController) Login(ctx *fiber.Ctx) error {
 	return utils.ToFiberJSON(ctx, models.OkResponse(fiber.StatusOK, "Login Successful",
 		fiber.Map{
 			"token": signedToken,
-			"user":  user,
+			"user":  user.ToResponse(),
 		}))
 }
 

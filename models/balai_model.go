@@ -10,7 +10,7 @@ import (
 
 type Balai struct {
 	ID            uint   `gorm:"primaryKey;autoIncrement"`
-	Name          string `gorm:"not null"`
+	Name          string `gorm:"index;not null"`
 	ProvinceID    uint   `gorm:"index"`
 	DistrictID    uint   `gorm:"index"`
 	SubdistrictID uint   `gorm:"index"`

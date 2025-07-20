@@ -111,25 +111,52 @@ func (s *userService) CreateUser(ctx *fiber.Ctx, input models.UserInput) models.
 		adminEselon1       models.Role
 		adminBalai         models.Role
 		verificatorEselon1 models.Role
+		verificatorBalai   models.Role
 		superAdmin         models.Role
+		surveyor           models.Role
 	)
 	if err := s.Db.Where("name = ?", s.Config.Roles.SuperAdmin).First(&superAdmin).Error; err != nil {
-		return models.InternalServerErrorResponse("SuperAdmin role not found")
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return models.NotFoundResponse("Role SuperAdmin not found")
+		}
+		return models.InternalServerErrorResponse("Error retrieving role SuperAdmin")
 	}
 	if err := s.Db.Where("name = ?", s.Config.Roles.AdminEselon1).First(&adminEselon1).Error; err != nil {
-		return models.InternalServerErrorResponse("AdminEselon1 role not found")
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return models.NotFoundResponse("Role AdminEselon1 not found")
+		}
+		return models.InternalServerErrorResponse("Error retrieving role AdminEselon1")
 	}
 	if err := s.Db.Where("name = ?", s.Config.Roles.AdminBalai).First(&adminBalai).Error; err != nil {
-		return models.InternalServerErrorResponse("AdminBalai role not found")
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return models.NotFoundResponse("Role AdminBalai not found")
+		}
+		return models.InternalServerErrorResponse("Error retrieving role AdminBalai")
 	}
 	if err := s.Db.Where("name = ?", s.Config.Roles.VerificatorEselon1).First(&verificatorEselon1).Error; err != nil {
-		return models.InternalServerErrorResponse("VerificatorEselon1 role not found")
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return models.NotFoundResponse("Role VerificatorEselon1 not found")
+		}
+		return models.InternalServerErrorResponse("Error retrieving role VerificatorEselon1")
+	}
+	if err := s.Db.Where("name = ?", s.Config.Roles.VerificatorBalai).First(&verificatorBalai).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return models.NotFoundResponse("Role VerificatorBalai not found")
+		}
+		return models.InternalServerErrorResponse("Error retrieving role VerificatorBalai")
+	}
+	if err := s.Db.Where("name = ?", s.Config.Roles.Surveyor).First(&surveyor).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return models.NotFoundResponse("Role Surveyor not found")
+		}
+		return models.InternalServerErrorResponse("Error retrieving role Surveyor")
 	}
 
 	// Validate creation permission based on actor's role
+	// for now all user can only be created by superadmin
 	allowedRoles := map[int][]uint{
-		int(superAdmin.ID):   {adminEselon1.ID, adminBalai.ID},
-		int(adminEselon1.ID): {verificatorEselon1.ID},
+		int(superAdmin.ID): {adminEselon1.ID, adminBalai.ID, verificatorEselon1.ID, verificatorBalai.ID, surveyor.ID},
+		//int(adminEselon1.ID): {verificatorEselon1.ID},
 	}
 
 	if !slices.Contains(allowedRoles[actorRoleID], input.RoleID) {
@@ -515,7 +542,7 @@ func (s *userService) deleteUser(userID uint, actorID int) models.ServiceRespons
 
 func (s *userService) isAllowedToModify(actorRole, targetRole string) bool {
 	allowedRoles := map[string][]string{
-		s.Config.Roles.SuperAdmin:   {s.Config.Roles.AdminEselon1, s.Config.Roles.AdminBalai},
+		s.Config.Roles.SuperAdmin:   {s.Config.Roles.AdminEselon1, s.Config.Roles.AdminBalai, s.Config.Roles.VerificatorEselon1, s.Config.Roles.VerificatorBalai, s.Config.Roles.Surveyor},
 		s.Config.Roles.AdminEselon1: {s.Config.Roles.VerificatorEselon1, s.Config.Roles.VerificatorBalai},
 		s.Config.Roles.AdminBalai:   {s.Config.Roles.VerificatorBalai, s.Config.Roles.Surveyor},
 	}

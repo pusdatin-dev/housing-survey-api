@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"housing-survey-api/config"
 	"housing-survey-api/internal/context"
@@ -43,6 +44,9 @@ func (s *subdistrictService) GetAll(ctx *fiber.Ctx) models.ServiceResponse {
 
 	if search := ctx.Query("search"); search != "" {
 		db = db.Where("name ILIKE ?", "%"+search+"%")
+	}
+	if district := ctx.Query("district"); district != "" {
+		db = db.Where("district_id IN ?", strings.Split(district, ","))
 	}
 
 	page, _ := strconv.Atoi(ctx.Query("page", "1"))
@@ -90,7 +94,7 @@ func (s *subdistrictService) Create(ctx *fiber.Ctx, input *models.SubdistrictInp
 	}
 	data := input.ToModel()
 
-	if err := s.Db.Create(&data).Error; err != nil {
+	if err := s.Db.FirstOrCreate(&data, &models.Subdistrict{ID: data.ID, Name: data.Name, DistrictID: data.DistrictID}).Error; err != nil {
 		return models.InternalServerErrorResponse("Failed to create subdistrict")
 	}
 	return models.OkResponse(http.StatusCreated, "Subdistrict created", data.ToResponse())

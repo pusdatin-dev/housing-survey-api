@@ -14,7 +14,7 @@ var _ = pq.StringArray{}
 type Survey struct {
 	ID                uint           `gorm:"primaryKey;autoIncrement"`
 	UserID            uint           `gorm:"index"`
-	Name              string         `gorm:"not null"`
+	Name              string         `gorm:"index;not null"`
 	Address           string         `gorm:"not null"`
 	Type              string         `gorm:"type:text;check:type IN ('Susun', 'Tapak');not null"`
 	MbrStatus         string         `gorm:"type:text;check:mbr_status IN ('MBR', 'Non-MBR');not null"`
@@ -199,7 +199,7 @@ func ToSurveyResponse(surveys []Survey) []SurveyResponse {
 }
 
 type SurveyInput struct {
-	ID                uint           `json:"id"`
+	ID                uint           `json:"id" validate:"required_if=Mode update"`
 	UserID            uint           `json:"user_id" validate:"required"`
 	Name              string         `json:"survey_name" validate:"required"`
 	Address           string         `json:"address" validate:"required"`
@@ -264,15 +264,15 @@ func (s *SurveyInput) ToSurvey() Survey {
 }
 
 func (s *SurveyInput) Validate() error {
-	var customMessages = map[string]string{
-		"ID.required":                "Survey ID is required for update",
+	customMessages := map[string]string{
+		"ID.required_if":             "Survey ID is required for update",
 		"UserID.required":            "User ID is required",
 		"Name.required":              "Survey name is required",
 		"Address.required":           "Address is required",
 		"Type.required":              "Survey type is required",
 		"Type.oneof":                 "Survey type must be either 'Tapak' or 'Susun'",
-		"MBRStatus.required":         "MBR status is required",
-		"MBRStatus.oneof":            "MBR status must be 'MBR' or 'Non-MBR'",
+		"MbrStatus.required":         "MBR status is required",
+		"MbrStatus.oneof":            "MBR status must be 'MBR' or 'Non-MBR'",
 		"Year.required":              "Year is required",
 		"UnitTarget.required":        "Unit target is required",
 		"StatusRealization.required": "Status realization is required",
@@ -282,7 +282,6 @@ func (s *SurveyInput) Validate() error {
 		"SubdistrictID.required":     "Subdistrict is required",
 		"VillageID.required":         "Village is required",
 	}
-
 	return shared.CustomValidate(s, customMessages)
 }
 

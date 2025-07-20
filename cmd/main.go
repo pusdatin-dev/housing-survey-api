@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"housing-survey-api/middleware"
 	"log"
 	"os"
 	"os/signal"
@@ -52,7 +53,7 @@ func main() {
 	})
 
 	// Setup middleware and routes
-	//middleware.InitMiddleware(appCtx)
+	middleware.InitMiddleware(appCtx)
 	routes.SetupRoutes(app, ctrl)
 	routes.PrintRoutes(app)
 

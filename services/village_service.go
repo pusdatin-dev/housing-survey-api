@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"housing-survey-api/config"
 	"housing-survey-api/internal/context"
@@ -43,6 +44,9 @@ func (s *villageService) GetAll(ctx *fiber.Ctx) models.ServiceResponse {
 
 	if search := ctx.Query("search"); search != "" {
 		db = db.Where("name ILIKE ?", "%"+search+"%")
+	}
+	if subdistrict := ctx.Query("subdistrict"); subdistrict != "" {
+		db = db.Where("subdistrict IN ?", strings.Split(subdistrict, ","))
 	}
 
 	page, _ := strconv.Atoi(ctx.Query("page", "1"))
@@ -90,7 +94,7 @@ func (s *villageService) Create(ctx *fiber.Ctx, input *models.VillageInput) mode
 	}
 	data := input.ToModel()
 
-	if err := s.Db.Create(&data).Error; err != nil {
+	if err := s.Db.FirstOrCreate(&data, &models.Village{ID: data.ID, Name: data.Name, SubdistrictID: data.SubdistrictID}).Error; err != nil {
 		return models.InternalServerErrorResponse("Failed to create village")
 	}
 	return models.OkResponse(http.StatusCreated, "Village created", data.ToResponse())
