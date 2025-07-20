@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"housing-survey-api/config"
 	"housing-survey-api/internal/context"
@@ -44,7 +45,9 @@ func (s *districtService) GetAll(ctx *fiber.Ctx) models.ServiceResponse {
 	if search := ctx.Query("search"); search != "" {
 		db = db.Where("name ILIKE ?", "%"+search+"%")
 	}
-
+	if province := ctx.Query("province"); province != "" {
+		db = db.Where("province_id IN ?", strings.Split(province, ","))
+	}
 	page, _ := strconv.Atoi(ctx.Query("page", "1"))
 	limit, _ := strconv.Atoi(ctx.Query("limit", "10"))
 	if page < 1 {
