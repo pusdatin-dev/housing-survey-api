@@ -15,7 +15,7 @@ func ProgramSeed(db *gorm.DB) {
 	program := []models.Program{
 		// Anggaran Negara - Pembangunan Baru
 		{Name: "Rumah Susun", Detail: "Anggaran PKP", ResourceID: 1},
-		{Name: "Rumah Khusus", Detail: "Anggaran Non PKP", ResourceID: 1},
+		{Name: "Rumah Khusus", Detail: "Anggaran PKP", ResourceID: 1},
 		{Name: "DAK Tematik PPKT", Detail: "Anggaran Non PKP", ResourceID: 1},
 		{Name: "APBD - PB", Detail: "Anggaran Non PKP", ResourceID: 1},
 
@@ -52,8 +52,8 @@ func ProgramSeed(db *gorm.DB) {
 		{Name: "CSR (PK)", Detail: "", ResourceID: 8},
 
 		// Anggaran Pengembang - Pembangunan Baru-Upaya Eksternal
-		{Name: "FLPP 2025", Detail: "", ResourceID: 9},
-		{Name: "FLPP Tambahan 2025", Detail: "", ResourceID: 9},
+		//{Name: "FLPP 2025", Detail: "", ResourceID: 9},
+		//{Name: "FLPP Tambahan 2025", Detail: "", ResourceID: 9},
 		{Name: "Pelonggaran GWM BI", Detail: "", ResourceID: 9},
 		{Name: "Tambahan Mikro / Milenial", Detail: "", ResourceID: 9},
 

@@ -23,6 +23,9 @@ type Survey struct {
 	StatusRealization string         `gorm:"check:status_realization IN ('Proses', 'Selesai')"`
 	YearRealization   uint           `gorm:"index"`
 	MonthRealization  uint           `gorm:"index"`
+	ProgramTypeID     uint           `gorm:"index"`
+	ResourceID        uint           `gorm:"index"`
+	ProgramID         uint           `gorm:"index"`
 	Budget            uint64         // jumlah anggaran
 	Coordinate        string         `gorm:"type:text"`
 	StatusBalai       string         `gorm:"type:text;default:'Pending';check:status_balai IN ('Pending', 'Approved', 'Rejected')"` // Pending, Approved, Rejected
@@ -40,6 +43,9 @@ type Survey struct {
 	District          District
 	Subdistrict       Subdistrict
 	Village           Village
+	ProgramType       ProgramType
+	Resource          Resource
+	Program           Program
 
 	CreatedBy string `gorm:"type:text"`
 	UpdatedBy string `gorm:"type:text"`

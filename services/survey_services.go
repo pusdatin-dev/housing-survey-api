@@ -22,6 +22,8 @@ type SurveyService interface {
 	UpdateSurvey(ctx *fiber.Ctx, survey models.SurveyInput) models.ServiceResponse
 	DeleteSurvey(ctx *fiber.Ctx, id string) models.ServiceResponse
 	ActionSurvey(ctx *fiber.Ctx, input models.SurveyActionInput) models.ServiceResponse
+	GetSurveysByResource(ctx *fiber.Ctx) models.ServiceResponse
+	GetSurveysByProgramType(ctx *fiber.Ctx) models.ServiceResponse
 }
 
 type surveyService struct {
@@ -265,4 +267,65 @@ func (s *surveyService) ActionSurvey(ctx *fiber.Ctx, input models.SurveyActionIn
 		"success_count": successCount,
 		"failed_count":  failedCount,
 	})
+}
+
+func (s *surveyService) GetSurveysByResource(ctx *fiber.Ctx) models.ServiceResponse {
+	//errMsg := ""
+	action := "DASHBOARD_RESOURCE"
+	actorRole, err := utils.GetRoleNameFromContext(ctx)
+	if err != nil {
+		utils.LogAudit(ctx, action, err.Error())
+		return models.InternalServerErrorResponse("Cannot get RoleID from context")
+	}
+	actorId, err := utils.GetUserIDFromContext(ctx)
+	if err != nil {
+		utils.LogAudit(ctx, action, err.Error())
+		return models.InternalServerErrorResponse("Cannot get UserID from context")
+	}
+
+	var actor models.User
+	if err = s.Db.Preload("Profile").Where("id = ?", actorId).First(&actor).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			utils.LogAudit(ctx, action, err.Error())
+			return models.NotFoundResponse("User not found")
+		}
+		utils.LogAudit(ctx, action, err.Error())
+		return models.InternalServerErrorResponse("Error retrieving user")
+	}
+
+	db := s.Db.Model(&models.Survey{})
+
+	switch actorRole {
+	case s.Config.Roles.Surveyor:
+		db.Where("user_id = ?", actorId)
+	case s.Config.Roles.VerificatorBalai, s.Config.Roles.AdminBalai:
+		db.Joins("Profile").
+			Where("profiles.balai_id = ?", actor.Profile.BalaiID)
+		//case s.Config.Roles.VerificatorEselon1, s.Config.Roles.AdminEselon1:
+	}
+
+	db.Joins("JOIN resources as r on r.id = surveys.resource_id").Where("r.deleted_at IS NULL")
+	var result []models.DashboardResource
+	for _, tag := range shared.ListTagResource {
+		var resCount int64
+		res := models.DashboardResource{
+			Name: tag,
+		}
+		if err = db.Where("r.tag = ?", tag).Count(&resCount).Error; err != nil {
+			utils.LogAudit(ctx, action, err.Error())
+			return models.InternalServerErrorResponse("cannot count surveys by resource")
+		}
+		fmt.Println(db.ToSQL(func(tx *gorm.DB) *gorm.DB {
+			return tx.Where("r.tag = ?", tag).Count(&resCount)
+		}))
+		res.Total = resCount
+		result = append(result, res)
+	}
+
+	utils.LogAudit(ctx, action, "Success")
+	return models.OkResponse(200, "Success", result)
+}
+
+func (s *surveyService) GetSurveysByProgramType(ctx *fiber.Ctx) models.ServiceResponse {
+	return models.OkResponse(200, "", nil)
 }
