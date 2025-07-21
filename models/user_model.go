@@ -1,6 +1,7 @@
 package models
 
 import (
+	"database/sql"
 	"time"
 
 	"housing-survey-api/shared"
@@ -40,6 +41,10 @@ type UserResponse struct {
 }
 
 func (u *User) ToResponse() UserResponse {
+	var balaiID uint
+	if u.Profile.BalaiID != nil {
+		balaiID = *u.Profile.BalaiID
+	}
 	return UserResponse{
 		ID:       u.ID,
 		Email:    u.Email,
@@ -47,9 +52,9 @@ func (u *User) ToResponse() UserResponse {
 		RoleID:   u.RoleID,
 		RoleName: u.Role.Name,
 		Name:     u.Profile.Name,
-		BalaiID:  *u.Profile.BalaiID,
+		BalaiID:  balaiID,
 		SKNo:     u.Profile.SKNo,
-		SKDate:   u.Profile.SKDate,
+		SKDate:   u.Profile.SKDate.Time,
 		File:     u.Profile.File,
 	}
 }
@@ -87,7 +92,7 @@ func (u *UserInput) ToUser() User {
 			Name:      u.Name,
 			BalaiID:   &u.BalaiID,
 			SKNo:      u.SKNo,
-			SKDate:    u.SKDate,
+			SKDate:    sql.NullTime{Time: u.SKDate, Valid: !u.SKDate.IsZero()},
 			File:      u.File,
 			CreatedBy: u.Actor,
 			CreatedAt: time.Now(),

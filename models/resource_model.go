@@ -12,6 +12,7 @@ type Resource struct {
 	ID            uint   `gorm:"primaryKey;autoIncrement"`
 	Name          string `gorm:"type:text;not null"`
 	ProgramTypeID uint   `gorm:"index"`
+	Tag           string `gorm:"type:text;not null"`
 	ProgramType   ProgramType
 	CreatedBy     string `gorm:"type:text"`
 	UpdatedBy     string `gorm:"type:text"`

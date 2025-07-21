@@ -1,6 +1,7 @@
 package config
 
 import (
+	"housing-survey-api/shared"
 	"log"
 	"os"
 
@@ -9,10 +10,11 @@ import (
 
 type Config struct {
 	DBConfig
-	DBSeed  bool
-	Roles   RolesConfig
-	Token   string
-	AppRole string
+	DBSeed   bool
+	Roles    RolesConfig
+	Token    string
+	AppRole  string
+	Resource ResourceConfig
 }
 
 type DBConfig struct {
@@ -31,6 +33,13 @@ type RolesConfig struct {
 	AdminBalai         string
 	VerificatorBalai   string
 	Surveyor           string
+}
+
+type ResourceConfig struct {
+	TagNegara       string
+	TagPengembang   string
+	TagSwadaya      string
+	TagGotongRoyong string
 }
 
 func LoadConfig() *Config {
@@ -57,12 +66,20 @@ func LoadConfig() *Config {
 		Surveyor:           getEnv("ROLE_SURVEYOR", "Surveyor"),
 	}
 
+	resConfig := ResourceConfig{
+		TagNegara:       getEnv("RESOURCE_NEGARA", shared.TagNegara),
+		TagPengembang:   getEnv("RESOURCE_PENGEMBANG", shared.TagPengembang),
+		TagSwadaya:      getEnv("RESOURCE_SWADAYA", shared.TagSwadaya),
+		TagGotongRoyong: getEnv("RESOURCE_GOTONGROYONG", shared.TagGotongRoyong),
+	}
+
 	return &Config{
 		DBConfig: dbConfig,
 		DBSeed:   getEnv("DB_SEED", "false") == "true",
 		Roles:    rolesConfig,
 		Token:    getEnv("JWT_SECRET", ""),
 		AppRole:  getEnv("APP_ROLE", "api"),
+		Resource: resConfig,
 	}
 }
 

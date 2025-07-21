@@ -9,6 +9,9 @@ import (
 func RunSeeder(db *gorm.DB, cfg *config.Config) {
 	// Call all seed functions here
 	RoleSeed(db, cfg)
+	ProgramTypeSeed(db)
+	ResourceSeed(db, cfg)
+	ProgramSeed(db)
 	//MasterDataSeed(db)
 	//BalaiSeed(db)
 	UsersSeedWithProfiles(db, cfg)

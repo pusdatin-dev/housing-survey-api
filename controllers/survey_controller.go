@@ -65,3 +65,11 @@ func (c *SurveyController) ActionSurvey(ctx *fiber.Ctx) error {
 	res := c.Survey.ActionSurvey(ctx, input)
 	return utils.ToFiberJSON(ctx, res)
 }
+
+func (c *SurveyController) GetSurveysByResource(ctx *fiber.Ctx) error {
+	return utils.ToFiberJSON(ctx, c.Survey.GetSurveysByResource(ctx))
+}
+
+func (c *SurveyController) GetSurveysByProgramType(ctx *fiber.Ctx) error {
+	return utils.ToFiberJSON(ctx, c.Survey.GetSurveysByProgramType(ctx))
+}

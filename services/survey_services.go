@@ -22,6 +22,8 @@ type SurveyService interface {
 	UpdateSurvey(ctx *fiber.Ctx, survey models.SurveyInput) models.ServiceResponse
 	DeleteSurvey(ctx *fiber.Ctx, id string) models.ServiceResponse
 	ActionSurvey(ctx *fiber.Ctx, input models.SurveyActionInput) models.ServiceResponse
+	GetSurveysByResource(ctx *fiber.Ctx) models.ServiceResponse
+	GetSurveysByProgramType(ctx *fiber.Ctx) models.ServiceResponse
 }
 
 type surveyService struct {
@@ -38,7 +40,7 @@ func NewSurveyService(ctx *context.AppContext) SurveyService {
 
 func (s *surveyService) GetAllSurveys(ctx *fiber.Ctx) models.ServiceResponse {
 	var surveys []models.Survey
-	db := s.Db.Model(&models.Survey{}).Where("deleted_at IS NULL")
+	db := s.Db.Model(&models.Survey{})
 
 	// Filtering
 	if address := ctx.Query("address"); address != "" {
@@ -82,6 +84,27 @@ func (s *surveyService) GetAllSurveys(ctx *fiber.Ctx) models.ServiceResponse {
 			db = db.Where("village_id IN ?", villageIDList)
 		}
 	}
+	if programTypeIDs := ctx.Query("program_type_ids"); programTypeIDs != "" {
+		// Assuming program_type_ids is a comma-separated list of program type IDs
+		programTypeIDList := utils.SplitAndTrim(programTypeIDs, ",")
+		if len(programTypeIDList) > 0 {
+			db = db.Where("program_type_id IN ?", programTypeIDList)
+		}
+	}
+	if resourceIDs := ctx.Query("resource_ids"); resourceIDs != "" {
+		// Assuming resource_ids is a comma-separated list of resource IDs
+		resourceIDList := utils.SplitAndTrim(resourceIDs, ",")
+		if len(resourceIDList) > 0 {
+			db = db.Where("resource_id IN ?", resourceIDList)
+		}
+	}
+	if programIDs := ctx.Query("program_ids"); programIDs != "" {
+		// Assuming program_ids is a comma-separated list of program IDs
+		programIDList := utils.SplitAndTrim(programIDs, ",")
+		if len(programIDList) > 0 {
+			db = db.Where("program_id IN ?", programIDList)
+		}
+	}
 
 	// Pagination
 	page, err := strconv.Atoi(ctx.Query("page", "1"))
@@ -99,8 +122,14 @@ func (s *surveyService) GetAllSurveys(ctx *fiber.Ctx) models.ServiceResponse {
 	if err := db.Count(&total).Error; err != nil {
 		return models.InternalServerErrorResponse("Failed to count surveys")
 	}
-
-	if err := s.Db.Preload("User").Limit(limit).Offset(offset).Order("created_at desc").Find(&surveys).Error; err != nil {
+	fmt.Println(db.ToSQL(func(tx *gorm.DB) *gorm.DB {
+		return tx.Preload("User").Limit(limit).Offset(offset).Order("created_at desc").Find(&surveys)
+	}))
+	if err := db.Preload("User").
+		Preload("ProgramType").Preload("Resource").Preload("Program").
+		Preload("Province").Preload("District").Preload("Subdistrict").Preload("Village").
+		Limit(limit).Offset(offset).Order("created_at desc").
+		Find(&surveys).Error; err != nil {
 		return models.InternalServerErrorResponse("Failed to retrieve surveys")
 	}
 	// Return with metadata
@@ -115,7 +144,10 @@ func (s *surveyService) GetAllSurveys(ctx *fiber.Ctx) models.ServiceResponse {
 
 func (s *surveyService) GetSurveyDetail(ctx *fiber.Ctx, id string) models.ServiceResponse {
 	var survey models.Survey
-	if err := s.Db.Where("id = ? AND deleted_at IS NULL", id).First(&survey).Error; err != nil {
+	if err := s.Db.Preload("User").
+		Preload("ProgramType").Preload("Resource").Preload("Program").
+		Preload("Province").Preload("District").Preload("Subdistrict").Preload("Village").
+		Where("id = ?", id).First(&survey).Error; err != nil {
 		return models.InternalServerErrorResponse("Failed to retrieve survey")
 	}
 	if &survey == nil {
@@ -143,6 +175,7 @@ func (s *surveyService) CreateSurvey(ctx *fiber.Ctx, input models.SurveyInput) m
 
 	// Insert into DB
 	if err := s.Db.Create(&survey).Error; err != nil {
+		utils.LogAudit(ctx, "CREATE_SURVEY", err.Error())
 		return models.InternalServerErrorResponse("Failed to create survey")
 	}
 
@@ -265,4 +298,115 @@ func (s *surveyService) ActionSurvey(ctx *fiber.Ctx, input models.SurveyActionIn
 		"success_count": successCount,
 		"failed_count":  failedCount,
 	})
+}
+
+func (s *surveyService) GetSurveysByResource(ctx *fiber.Ctx) models.ServiceResponse {
+	action := "DASHBOARD_RESOURCE"
+	actorRole, err := utils.GetRoleNameFromContext(ctx)
+	if err != nil {
+		utils.LogAudit(ctx, action, err.Error())
+		return models.InternalServerErrorResponse("Cannot get RoleID from context")
+	}
+	actorId, err := utils.GetUserIDFromContext(ctx)
+	if err != nil {
+		utils.LogAudit(ctx, action, err.Error())
+		return models.InternalServerErrorResponse("Cannot get UserID from context")
+	}
+
+	var actor models.User
+	if err = s.Db.Preload("Profile").Where("id = ?", actorId).First(&actor).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			utils.LogAudit(ctx, action, err.Error())
+			return models.NotFoundResponse("User not found")
+		}
+		utils.LogAudit(ctx, action, err.Error())
+		return models.InternalServerErrorResponse("Error retrieving user")
+	}
+
+	var result []models.DashboardResource
+	for _, tag := range shared.ListTagResource {
+		var resCount int64
+		res := models.DashboardResource{
+			Name: tag,
+		}
+		db := s.Db.Model(&models.Survey{})
+
+		switch actorRole {
+		case s.Config.Roles.Surveyor:
+			db.Where("user_id = ?", actorId)
+		case s.Config.Roles.VerificatorBalai, s.Config.Roles.AdminBalai:
+			db.Joins("Profile").
+				Where("profiles.balai_id = ?", actor.Profile.BalaiID)
+			//case s.Config.Roles.VerificatorEselon1, s.Config.Roles.AdminEselon1:
+		}
+
+		db.Joins("JOIN resources as r on r.id = surveys.resource_id").Where("r.deleted_at IS NULL")
+		if err = db.Model(&models.Survey{}).Where("r.tag = ?", tag).Count(&resCount).Error; err != nil {
+			utils.LogAudit(ctx, action, err.Error())
+			return models.InternalServerErrorResponse("cannot count surveys by resource")
+		}
+		res.Total = resCount
+		result = append(result, res)
+	}
+
+	utils.LogAudit(ctx, action, "Success")
+	return models.OkResponse(200, "Success", result)
+}
+
+func (s *surveyService) GetSurveysByProgramType(ctx *fiber.Ctx) models.ServiceResponse {
+	action := "DASHBOARD_PROGRAM_TYPE"
+	actorRole, err := utils.GetRoleNameFromContext(ctx)
+	if err != nil {
+		utils.LogAudit(ctx, action, err.Error())
+		return models.InternalServerErrorResponse("Cannot get RoleID from context")
+	}
+	actorId, err := utils.GetUserIDFromContext(ctx)
+	if err != nil {
+		utils.LogAudit(ctx, action, err.Error())
+		return models.InternalServerErrorResponse("Cannot get UserID from context")
+	}
+
+	var actor models.User
+	if err = s.Db.Preload("Profile").Where("id = ?", actorId).First(&actor).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			utils.LogAudit(ctx, action, err.Error())
+			return models.NotFoundResponse("User not found")
+		}
+		utils.LogAudit(ctx, action, err.Error())
+		return models.InternalServerErrorResponse("Error retrieving user")
+	}
+
+	var programTypes []models.ProgramType
+	if err = s.Db.Find(&programTypes).Error; err != nil {
+		utils.LogAudit(ctx, action, err.Error())
+		return models.InternalServerErrorResponse("Error retrieving program types")
+	}
+
+	var result []models.DashboardResource
+	for _, pt := range programTypes {
+		var resCount int64
+		res := models.DashboardResource{
+			Name: pt.Name,
+		}
+		db := s.Db.Model(&models.Survey{})
+
+		switch actorRole {
+		case s.Config.Roles.Surveyor:
+			db.Where("user_id = ?", actorId)
+		case s.Config.Roles.VerificatorBalai, s.Config.Roles.AdminBalai:
+			db.Joins("Profile").
+				Where("profiles.balai_id = ?", actor.Profile.BalaiID)
+			//case s.Config.Roles.VerificatorEselon1, s.Config.Roles.AdminEselon1:
+		}
+
+		if err = db.Model(&models.Survey{}).Where("program_type_id = ?", pt.ID).Count(&resCount).Error; err != nil {
+			utils.LogAudit(ctx, action, err.Error())
+			return models.InternalServerErrorResponse("cannot count surveys by resource")
+		}
+		res.Total = resCount
+		result = append(result, res)
+	}
+
+	utils.LogAudit(ctx, action, "Success")
+	return models.OkResponse(200, "Success", result)
 }

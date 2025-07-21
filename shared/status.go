@@ -17,4 +17,11 @@ var (
 
 	Create = "create"
 	Update = "update"
+
+	TagNegara       = "Negara"
+	TagPengembang   = "Pengembang"
+	TagSwadaya      = "Swadaya"
+	TagGotongRoyong = "Gotong Royong"
+
+	ListTagResource = []string{TagNegara, TagPengembang, TagSwadaya, TagGotongRoyong}
 )
