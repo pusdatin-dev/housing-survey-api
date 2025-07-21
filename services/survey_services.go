@@ -8,6 +8,7 @@ import (
 	"housing-survey-api/models"
 	"housing-survey-api/shared"
 	"housing-survey-api/utils"
+	"math"
 	"strconv"
 	"time"
 
@@ -24,6 +25,7 @@ type SurveyService interface {
 	ActionSurvey(ctx *fiber.Ctx, input models.SurveyActionInput) models.ServiceResponse
 	GetSurveysByResource(ctx *fiber.Ctx) models.ServiceResponse
 	GetSurveysByProgramType(ctx *fiber.Ctx) models.ServiceResponse
+	GetSurveysByVerificationStatus(ctx *fiber.Ctx) models.ServiceResponse
 }
 
 type surveyService struct {
@@ -323,30 +325,50 @@ func (s *surveyService) GetSurveysByResource(ctx *fiber.Ctx) models.ServiceRespo
 		return models.InternalServerErrorResponse("Error retrieving user")
 	}
 
-	var result []models.DashboardResource
-	for _, tag := range shared.ListTagResource {
-		var resCount int64
-		res := models.DashboardResource{
-			Name: tag,
+	// 1. Ambil semua resource (buat map tag -> name)
+	var resources []models.Resource
+	if err = s.Db.Find(&resources).Error; err != nil {
+		utils.LogAudit(ctx, action, err.Error())
+		return models.InternalServerErrorResponse("Error retrieving resources")
+	}
+	// Map tag ke name
+	tagToName := make(map[string]string)
+	for _, r := range resources {
+		// hanya isi jika belum ada (biar ambil yang pertama/utama)
+		if _, ok := tagToName[r.Tag]; !ok {
+			tagToName[r.Tag] = r.Name
 		}
-		db := s.Db.Model(&models.Survey{})
+	}
 
+	// 2. Hitung survey per tag (bukan per resource_id lagi)
+	tagCount := make(map[string]int64)
+	for _, r := range resources {
+		db := s.Db.Model(&models.Survey{})
 		switch actorRole {
 		case s.Config.Roles.Surveyor:
-			db.Where("user_id = ?", actorId)
+			db = db.Where("user_id = ?", actorId)
 		case s.Config.Roles.VerificatorBalai, s.Config.Roles.AdminBalai:
-			db.Joins("Profile").
+			db = db.Joins("JOIN profiles ON profiles.user_id = surveys.user_id").
 				Where("profiles.balai_id = ?", actor.Profile.BalaiID)
-			//case s.Config.Roles.VerificatorEselon1, s.Config.Roles.AdminEselon1:
 		}
-
-		db.Joins("JOIN resources as r on r.id = surveys.resource_id").Where("r.deleted_at IS NULL")
-		if err = db.Model(&models.Survey{}).Where("r.tag = ?", tag).Count(&resCount).Error; err != nil {
+		var resCount int64
+		if err := db.Where("resource_id = ?", r.ID).Count(&resCount).Error; err != nil {
 			utils.LogAudit(ctx, action, err.Error())
-			return models.InternalServerErrorResponse("cannot count surveys by resource")
+			return models.InternalServerErrorResponse("cannot count surveys by resource tag")
 		}
-		res.Total = resCount
-		result = append(result, res)
+		tagCount[r.Tag] += resCount // group by tag
+	}
+
+	// 3. List tag utama (kalau mau urutan tertentu, bisa manual array ["negara", ...])
+	listTag := []string{"negara", "pengembang", "swadaya", "gotongroyong"}
+
+	// 4. Siapkan hasil output (name diambil dari tagToName, total dari tagCount)
+	var result []models.DashboardResource
+	for _, tag := range listTag {
+		result = append(result, models.DashboardResource{
+			Name:  tagToName[tag],
+			Total: tagCount[tag],
+		})
 	}
 
 	utils.LogAudit(ctx, action, "Success")
@@ -382,19 +404,32 @@ func (s *surveyService) GetSurveysByProgramType(ctx *fiber.Ctx) models.ServiceRe
 		return models.InternalServerErrorResponse("Error retrieving program types")
 	}
 
-	var result []models.DashboardResource
+	// --- Tambah: Hitung total survey (untuk persentase)
+	var totalSurvey int64
+	dbAll := s.Db.Model(&models.Survey{})
+	switch actorRole {
+	case s.Config.Roles.Surveyor:
+		dbAll = dbAll.Where("user_id = ?", actorId)
+	case s.Config.Roles.VerificatorBalai, s.Config.Roles.AdminBalai:
+		dbAll = dbAll.Joins("JOIN profiles ON profiles.user_id = surveys.user_id").
+			Where("profiles.balai_id = ?", actor.Profile.BalaiID)
+	}
+	if err := dbAll.Count(&totalSurvey).Error; err != nil {
+		utils.LogAudit(ctx, action, err.Error())
+		return models.InternalServerErrorResponse("Error counting total surveys")
+	}
+	// ---
+
+	var result []models.DashboardProgramType
 	for _, pt := range programTypes {
 		var resCount int64
-		res := models.DashboardResource{
-			Name: pt.Name,
-		}
 		db := s.Db.Model(&models.Survey{})
 
 		switch actorRole {
 		case s.Config.Roles.Surveyor:
 			db.Where("user_id = ?", actorId)
 		case s.Config.Roles.VerificatorBalai, s.Config.Roles.AdminBalai:
-			db.Joins("Profile").
+			db = db.Joins("JOIN profiles ON profiles.user_id = surveys.user_id").
 				Where("profiles.balai_id = ?", actor.Profile.BalaiID)
 			//case s.Config.Roles.VerificatorEselon1, s.Config.Roles.AdminEselon1:
 		}
@@ -403,10 +438,98 @@ func (s *surveyService) GetSurveysByProgramType(ctx *fiber.Ctx) models.ServiceRe
 			utils.LogAudit(ctx, action, err.Error())
 			return models.InternalServerErrorResponse("cannot count surveys by resource")
 		}
-		res.Total = resCount
-		result = append(result, res)
+
+		percent := 0.0
+		if totalSurvey > 0 {
+			percent = (float64(resCount) / float64(totalSurvey)) * 100
+			percent = math.Round(percent*10) / 10 // Satu angka di belakang koma
+		}
+
+		result = append(result, models.DashboardProgramType{
+			Name:    pt.Name,
+			Total:   int(resCount),
+			Percent: percent,
+		})
 	}
 
+	utils.LogAudit(ctx, action, "Success")
+	return models.OkResponse(200, "Success", result)
+}
+
+func (s *surveyService) GetSurveysByVerificationStatus(ctx *fiber.Ctx) models.ServiceResponse {
+	action := "DASHBOARD_VERIFIED"
+
+	// 1. Ambil role dan user_id dari context
+	actorRole, err := utils.GetRoleNameFromContext(ctx)
+	if err != nil {
+		utils.LogAudit(ctx, action, err.Error())
+		return models.InternalServerErrorResponse("Cannot get RoleID from context")
+	}
+	actorId, err := utils.GetUserIDFromContext(ctx)
+	if err != nil {
+		utils.LogAudit(ctx, action, err.Error())
+		return models.InternalServerErrorResponse("Cannot get UserID from context")
+	}
+
+	// 2. Ambil data profil actor
+	var actor models.User
+	if err = s.Db.Preload("Profile").Where("id = ?", actorId).First(&actor).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			utils.LogAudit(ctx, action, err.Error())
+			return models.NotFoundResponse("User not found")
+		}
+		utils.LogAudit(ctx, action, err.Error())
+		return models.InternalServerErrorResponse("Error retrieving user")
+	}
+
+	// 3. Mulai Query dan Filter berdasarkan role actor
+	// 3.1 Query untuk mengambil data survey
+	db := s.Db.Model(&models.Survey{})
+
+	// 3.2 Filter berdasarkan role actor
+	switch actorRole {
+	case s.Config.Roles.Surveyor:
+		// 3.2.a. Jika Surveyor, hanya survey yang dibuat olehnya
+		db.Where("user_id = ?", actorId)
+	case s.Config.Roles.VerificatorBalai, s.Config.Roles.AdminBalai:
+		// 3.2.b. Jika Verificator Balai atau Admin Balai, tampilkan data Balai
+		db.Joins("JOIN profiles ON profiles.user_id = surveys.user_id").
+			Where("profiles.balai_id = ?", actor.Profile.BalaiID)
+	case s.Config.Roles.VerificatorEselon1, s.Config.Roles.AdminEselon1:
+		// 3.2.c. Jika Verificator Eselon1 atau Admin Eselon1, tampilkan semua data
+	}
+
+	// 4. Hitung total survey (semua status)
+	var totalSurvey int64
+	if err := db.Count(&totalSurvey).Error; err != nil {
+		utils.LogAudit(ctx, action, err.Error())
+		return models.InternalServerErrorResponse("Failed to count all surveys")
+	}
+
+	// 5. Hitung yang sudah diverifikasi oleh Eselon 1
+	var totalSurveyVerified int64
+	dbVerified := db.Session(&gorm.Session{}) // copy semua filter di atas
+	if err := dbVerified.Where("status_eselon1 = ?", "Approved").Count(&totalSurveyVerified).Error; err != nil {
+		utils.LogAudit(ctx, action, err.Error())
+		return models.InternalServerErrorResponse("Failed to count verified surveys")
+	}
+
+	// 6. Hitung persentase (dalam persen, dua desimal)
+	var percentVerified float64 = 0
+	if totalSurvey > 0 {
+		percentVerified = (float64(totalSurveyVerified) / float64(totalSurvey)) * 100
+		percentVerified = math.Round(percentVerified*10) / 10 // satu angka dibelakang koma
+	}
+
+	// 7. Bentuk output JSON
+	result := models.DashboardVerified{
+		Name:          "Survey Verified Recap",
+		Total:         int(totalSurvey),
+		VerifiedCount: int(totalSurveyVerified),
+		Percent:       percentVerified,
+	}
+
+	// 8. Log sukses & return response
 	utils.LogAudit(ctx, action, "Success")
 	return models.OkResponse(200, "Success", result)
 }
