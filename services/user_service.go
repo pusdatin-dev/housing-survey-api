@@ -1,6 +1,7 @@
 package services
 
 import (
+	"database/sql"
 	"errors"
 	"fmt"
 	"housing-survey-api/config"
@@ -180,11 +181,6 @@ func (s *userService) CreateUser(ctx *fiber.Ctx, input models.UserInput) models.
 	// Transaction to save user + profile
 	err = s.Db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&user).Error; err != nil {
-			return err
-		}
-		profile := user.Profile
-		profile.UserID = user.ID
-		if err := tx.Create(&profile).Error; err != nil {
 			return err
 		}
 		return nil
@@ -423,6 +419,9 @@ func (s *userService) fetchUserDetail(userID uint) (*models.User, error) {
 }
 
 func (s *userService) UpdateUser(ctx *fiber.Ctx, input models.UserInput) models.ServiceResponse {
+	if err := input.Validate(); err != nil {
+		return models.BadRequestResponse(err.Error())
+	}
 	// Get actor info
 	actorID, err := utils.GetUserIDFromContext(ctx)
 	if err != nil {
@@ -468,7 +467,7 @@ func (s *userService) UpdateUser(ctx *fiber.Ctx, input models.UserInput) models.
 		user.Profile.Name = input.Name
 		user.Profile.BalaiID = &input.BalaiID
 		user.Profile.SKNo = input.SKNo
-		user.Profile.SKDate = input.SKDate
+		user.Profile.SKDate = sql.NullTime{Time: input.SKDate, Valid: !input.SKDate.IsZero()}
 		user.Profile.File = input.File
 		user.Profile.UpdatedBy = input.Actor
 		user.Profile.UpdatedAt = time.Now()

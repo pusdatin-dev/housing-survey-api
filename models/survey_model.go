@@ -23,6 +23,9 @@ type Survey struct {
 	StatusRealization string         `gorm:"check:status_realization IN ('Proses', 'Selesai')"`
 	YearRealization   uint           `gorm:"index"`
 	MonthRealization  uint           `gorm:"index"`
+	ProgramTypeID     uint           `gorm:"index"`
+	ResourceID        uint           `gorm:"index"`
+	ProgramID         uint           `gorm:"index"`
 	Budget            uint64         // jumlah anggaran
 	Coordinate        string         `gorm:"type:text"`
 	StatusBalai       string         `gorm:"type:text;default:'Pending';check:status_balai IN ('Pending', 'Approved', 'Rejected')"` // Pending, Approved, Rejected
@@ -40,6 +43,9 @@ type Survey struct {
 	District          District
 	Subdistrict       Subdistrict
 	Village           Village
+	ProgramType       ProgramType
+	Resource          Resource
+	Program           Program
 
 	CreatedBy string `gorm:"type:text"`
 	UpdatedBy string `gorm:"type:text"`
@@ -62,6 +68,12 @@ type SurveyResponse struct {
 	StatusRealization string         `json:"status_realization"`
 	YearRealization   uint           `json:"year_realization"`
 	MonthRealization  uint           `json:"month_realization"`
+	ProgramTypeID     uint           `json:"program_type_id"`
+	ProgramTypeName   string         `json:"program_type_name"`
+	ResourceID        uint           `json:"resource_id"`
+	ResourceName      string         `json:"resource_name"`
+	ProgramID         uint           `json:"program_id"`
+	ProgramName       string         `json:"program_name"`
 	Budget            uint64         `json:"budget"`
 	Coordinate        string         `json:"coordinate"` // lat,lng string or GeoJSON
 	Status            string         `json:"status"`
@@ -91,6 +103,9 @@ func (s *Survey) Update(newSurvey *Survey) {
 	s.StatusRealization = newSurvey.StatusRealization
 	s.YearRealization = newSurvey.YearRealization
 	s.MonthRealization = newSurvey.MonthRealization
+	s.ProgramTypeID = newSurvey.ProgramTypeID
+	s.ResourceID = newSurvey.ResourceID
+	s.ProgramID = newSurvey.ProgramID
 	s.Budget = newSurvey.Budget
 	s.Coordinate = newSurvey.Coordinate
 	s.IsSubmitted = newSurvey.IsSubmitted
@@ -121,6 +136,9 @@ func (s *Survey) UpdateFromInput(input SurveyInput) {
 	s.StatusRealization = input.StatusRealization
 	s.YearRealization = input.YearRealization
 	s.MonthRealization = input.MonthRealization
+	s.ProgramTypeID = input.ProgramTypeID
+	s.ResourceID = input.ResourceID
+	s.ProgramID = input.ProgramID
 	s.Budget = input.Budget
 	s.Coordinate = input.Coordinate
 	s.IsSubmitted = input.IsSubmitted
@@ -148,6 +166,12 @@ func (s *Survey) ToResponse() SurveyResponse {
 		StatusRealization: s.StatusRealization,
 		YearRealization:   s.YearRealization,
 		MonthRealization:  s.MonthRealization,
+		ProgramTypeID:     s.ProgramTypeID,
+		ProgramTypeName:   s.ProgramType.Name,
+		ResourceID:        s.ResourceID,
+		ResourceName:      s.Resource.Name,
+		ProgramID:         s.ProgramID,
+		ProgramName:       s.Program.Name,
 		Budget:            s.Budget,
 		Coordinate:        s.Coordinate,
 		IsSubmitted:       s.IsSubmitted,
@@ -201,15 +225,18 @@ func ToSurveyResponse(surveys []Survey) []SurveyResponse {
 type SurveyInput struct {
 	ID                uint           `json:"id" validate:"required_if=Mode update"`
 	UserID            uint           `json:"user_id" validate:"required"`
-	Name              string         `json:"survey_name" validate:"required"`
+	Name              string         `json:"name" validate:"required"`
 	Address           string         `json:"address" validate:"required"`
 	Type              string         `json:"type" validate:"required,oneof=Tapak Susun"`
 	MbrStatus         string         `json:"mbr_status" validate:"required,oneof=MBR Non-MBR"`
 	Year              uint           `json:"year" validate:"required"`
 	UnitTarget        uint           `json:"unit_target" validate:"required"`
-	StatusRealization string         `json:"status_realization" validate:"required,one of=Proses Selesai"`
+	StatusRealization string         `json:"status_realization" validate:"required,oneof=Proses Selesai"`
 	YearRealization   uint           `json:"year_realization"`
 	MonthRealization  uint           `json:"month_realization"`
+	ProgramTypeID     uint           `json:"program_type_id" validate:"required"`
+	ResourceID        uint           `json:"resource_id" validate:"required"`
+	ProgramID         uint           `json:"program_id" validate:"required"`
 	Budget            uint64         `json:"budget"`
 	Coordinate        string         `json:"coordinate"`   // lat,lng string or GeoJSON
 	IsSubmitted       bool           `json:"is_submitted"` // default false
@@ -236,30 +263,35 @@ func (s *SurveyInput) ToSurvey() Survey {
 		id = s.ID
 	}
 	return Survey{
-		ID:               id,
-		UserID:           s.UserID,
-		Name:             s.Name,
-		Type:             s.Type,
-		MbrStatus:        s.MbrStatus,
-		Year:             s.Year,
-		UnitTarget:       s.UnitTarget,
-		YearRealization:  s.YearRealization,
-		MonthRealization: s.MonthRealization,
-		Budget:           s.Budget,
-		Coordinate:       s.Coordinate,
-		IsSubmitted:      s.IsSubmitted,
-		StatusBalai:      shared.Pending,
-		StatusEselon1:    shared.Pending,
-		ImagesBefore:     imagesBefore,
-		ImagesAfter:      imagesAfter,
-		ProvinceID:       s.ProvinceID,
-		DistrictID:       s.DistrictID,
-		SubdistrictID:    s.SubdistrictID,
-		VillageID:        s.VillageID,
-		CreatedBy:        s.Actor,
-		CreatedAt:        time.Now(),
-		UpdatedBy:        s.Actor,
-		UpdatedAt:        time.Now(),
+		ID:                id,
+		UserID:            s.UserID,
+		Name:              s.Name,
+		Address:           s.Address,
+		Type:              s.Type,
+		MbrStatus:         s.MbrStatus,
+		Year:              s.Year,
+		UnitTarget:        s.UnitTarget,
+		StatusRealization: s.StatusRealization,
+		YearRealization:   s.YearRealization,
+		MonthRealization:  s.MonthRealization,
+		ProgramTypeID:     s.ProgramTypeID,
+		ResourceID:        s.ResourceID,
+		ProgramID:         s.ProgramID,
+		Budget:            s.Budget,
+		Coordinate:        s.Coordinate,
+		IsSubmitted:       s.IsSubmitted,
+		StatusBalai:       shared.Pending,
+		StatusEselon1:     shared.Pending,
+		ImagesBefore:      imagesBefore,
+		ImagesAfter:       imagesAfter,
+		ProvinceID:        s.ProvinceID,
+		DistrictID:        s.DistrictID,
+		SubdistrictID:     s.SubdistrictID,
+		VillageID:         s.VillageID,
+		CreatedBy:         s.Actor,
+		CreatedAt:         time.Now(),
+		UpdatedBy:         s.Actor,
+		UpdatedAt:         time.Now(),
 	}
 }
 
@@ -277,6 +309,9 @@ func (s *SurveyInput) Validate() error {
 		"UnitTarget.required":        "Unit target is required",
 		"StatusRealization.required": "Status realization is required",
 		"StatusRealization.oneof":    "Status realization must be either 'Proses' or 'Selesai'",
+		"ProgramTypeID.required":     "Program type is required",
+		"ResourceID.required":        "Resource is required",
+		"ProgramID.required":         "Program is required",
 		"ProvinceID.required":        "Province is required",
 		"DistrictID.required":        "District is required",
 		"SubdistrictID.required":     "Subdistrict is required",
