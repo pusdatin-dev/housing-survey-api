@@ -15,6 +15,26 @@ services:
       - "5432:5432"
     restart: unless-stopped
 
+  backup:
+    build:
+      context: ./backup
+    env_file:
+      - .env
+    volumes:
+      - ../backup-db:/var/backup
+    depends_on:
+      - db
+    networks:
+      - backend
+    entrypoint: >
+      /bin/bash -c "apt-get update &&
+      apt-get install -y cron &&
+      echo '*/2 * * * * /usr/local/bin/backup.sh >> /var/log/cron.log 2>&1' > /etc/cron.d/backup-cron &&
+      chmod 0644 /etc/cron.d/backup-cron &&
+      crontab /etc/cron.d/backup-cron &&
+      touch /var/log/cron.log &&
+      cron && tail -f /var/log/cron.log"
+
   # Load Balancer using HAProxy
   haproxy:
     build:
