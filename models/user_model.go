@@ -10,14 +10,15 @@ import (
 )
 
 type User struct {
-	ID       uint    `gorm:"primaryKey;autoIncrement"`
-	Email    string  `gorm:"uniqueIndex;not null"`
-	Password string  `gorm:"not null"`
-	IsActive bool    `gorm:"default:false"`
-	RoleID   uint    `gorm:"index"`
-	Profile  Profile `gorm:"constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
-	Token    *string
-	Role     Role
+	ID           uint    `gorm:"primaryKey;autoIncrement"`
+	Email        string  `gorm:"uniqueIndex;not null"`
+	Password     string  `gorm:"not null"`
+	IsActive     bool    `gorm:"default:false"`
+	RoleID       uint    `gorm:"index"`
+	Profile      Profile `gorm:"constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
+	Token        *string
+	RefreshToken *string
+	Role         Role
 
 	CreatedBy string `gorm:"type:text"`
 	UpdatedBy string `gorm:"type:text"`

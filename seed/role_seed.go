@@ -23,6 +23,7 @@ func RoleSeed(db *gorm.DB, cfg *config.Config) {
 		{Name: cfg.Roles.AdminBalai},
 		{Name: cfg.Roles.VerificatorBalai},
 		{Name: cfg.Roles.Surveyor},
+		{Name: cfg.Roles.Public},
 	}
 
 	for _, role := range roles {
