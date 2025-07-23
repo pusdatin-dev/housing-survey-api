@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"errors"
 	"housing-survey-api/utils"
 	"strings"
 
@@ -15,21 +16,11 @@ func AuthRequired() fiber.Handler {
 			utils.LogAudit(c, "AUTH_FAIL", "Missing Bearer token")
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized"})
 		}
-		tokenStr = strings.TrimPrefix(tokenStr, "Bearer ")
 
-		// 🔐 Use config from appCtx, not os.Getenv
-		token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
-			return []byte(appCtx.Config.Token), nil
-		})
-		if err != nil || !token.Valid {
+		claims, err := ExtractMapClaims(tokenStr)
+		if err != nil {
 			utils.LogAudit(c, "AUTH_FAIL", "Invalid JWT token")
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid token"})
-		}
-
-		claims, ok := token.Claims.(jwt.MapClaims)
-		if !ok {
-			utils.LogAudit(c, "AUTH_FAIL", "Invalid claims")
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid token claims"})
 		}
 
 		// ✅ Inject claims into user context
@@ -42,12 +33,41 @@ func AuthRequired() fiber.Handler {
 
 func PublicAccess() fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		ctx := utils.SetGuestContext(c.Context(), c.IP())
-		c.SetUserContext(ctx)
+		tokenStr := c.Get("Authorization")
+		if !strings.HasPrefix(tokenStr, "Bearer ") {
+			ctx := utils.SetGuestContext(c.Context(), c.IP())
+			c.SetUserContext(ctx)
+		} else {
+			claims, err := ExtractMapClaims(tokenStr)
+			if err != nil {
+				utils.LogAudit(c, "AUTH_FAIL", "Invalid JWT token")
+				return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid token"})
+			}
+			ctx := utils.SetUserContext(c.Context(), claims)
+			c.SetUserContext(ctx)
+		}
 
 		utils.LogAudit(c, "GUEST_ACCESS", "Guest")
 		return c.Next()
 	}
+}
+
+func ExtractMapClaims(tokenStr string) (jwt.MapClaims, error) {
+	tokenStr = strings.TrimPrefix(tokenStr, "Bearer ")
+
+	// 🔐 Use config from appCtx, not os.Getenv
+	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
+		return []byte(appCtx.Config.Token), nil
+	})
+	if err != nil || !token.Valid {
+		return nil, errors.New("invalid token")
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return nil, errors.New("cannot extract claims")
+	}
+	return claims, nil
 }
 
 func AdminOnly() fiber.Handler {

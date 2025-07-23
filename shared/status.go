@@ -24,4 +24,16 @@ var (
 	TagGotongRoyong = "Gotong Royong"
 
 	ListTagResource = []string{TagNegara, TagPengembang, TagSwadaya, TagGotongRoyong}
+
+	StatusResolved   = "Resolved"   // Status for resolved comments
+	StatusUnresolved = "Unresolved" // Status for unresolved comments
+
+	PICSurvey = map[string]bool{
+		"Surveyor":             true,
+		"Admin Balai":          true,
+		"Verificator Balai":    true,
+		"Admin Eselon 1":       true,
+		"Verificator Eselon 1": true,
+		"Super Admin":          true,
+	}
 )

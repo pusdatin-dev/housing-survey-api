@@ -1,10 +1,9 @@
 package controllers
 
 import (
-	"fmt"
-
 	"housing-survey-api/models"
 	"housing-survey-api/services"
+	"housing-survey-api/shared"
 	"housing-survey-api/utils"
 
 	"github.com/gofiber/fiber/v2"
@@ -23,31 +22,40 @@ func (c *CommentController) GetCommentByID(ctx *fiber.Ctx) error {
 }
 
 func (c *CommentController) CreatePublicComment(ctx *fiber.Ctx) error {
-	fmt.Println("Create public comment")
 	var input models.CommentInput
 	if err := ctx.BodyParser(&input); err != nil {
-		fmt.Println("Error parsing request body:", err)
 		return utils.ToFiberBadRequest(ctx, "Invalid input format")
 	}
 
 	input.Actor = utils.GetActor(ctx)
+	input.Mode = shared.Create
 	res := c.Comment.CreatePublicComment(ctx, input)
-	fmt.Println("Success creating public comment")
 	return utils.ToFiberJSON(ctx, res)
 }
 
 func (c *CommentController) UpdateComment(ctx *fiber.Ctx) error {
-	// Logic to update a comment
-	id := ctx.Params("id")
-	var comment map[string]interface{}
-	if err := ctx.BodyParser(&comment); err != nil {
-		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+	var input models.CommentInput
+	if err := ctx.BodyParser(&input); err != nil {
+		return utils.ToFiberBadRequest(ctx, "Invalid input format")
 	}
-	return ctx.JSON(fiber.Map{"message": "Comment updated", "id": id, "comment": comment})
+
+	input.Actor = utils.GetActor(ctx)
+	input.Mode = shared.Update
+	res := c.Comment.UpdateComment(ctx, input)
+	return utils.ToFiberJSON(ctx, res)
 }
 
 func (c *CommentController) DeleteComment(ctx *fiber.Ctx) error {
-	// Logic to delete a comment
-	id := ctx.Params("id")
-	return ctx.JSON(fiber.Map{"message": "Comment deleted", "id": id})
+	return utils.ToFiberJSON(ctx, c.Comment.DeleteComment(ctx, ctx.Params("id")))
+}
+
+func (c *CommentController) ActionComment(ctx *fiber.Ctx) error {
+	var input models.CommentActionInput
+	if err := ctx.BodyParser(&input); err != nil {
+		return utils.ToFiberBadRequest(ctx, "Invalid input format")
+	}
+
+	input.Actor = utils.GetActor(ctx)
+	res := c.Comment.ActionComment(ctx, input)
+	return utils.ToFiberJSON(ctx, res)
 }
