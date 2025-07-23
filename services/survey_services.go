@@ -44,6 +44,35 @@ func (s *surveyService) GetAllSurveys(ctx *fiber.Ctx) models.ServiceResponse {
 	var surveys []models.Survey
 	db := s.Db.Model(&models.Survey{})
 
+	// 1. Ambil role & user id (fallback ke "public" kalau ga login)
+	actorRole := "public"
+	actorId := uint(0)
+	var actor models.User
+
+	// Coba ambil dari JWT context, kalau gagal role public
+	if role, err := utils.GetRoleNameFromContext(ctx); err == nil {
+		actorRole = role
+	}
+	if id, err := utils.GetUserIDFromContext(ctx); err == nil {
+		actorId = uint(id)
+		// Kalau user login, ambil sekalian profile-nya
+		if err := s.Db.Preload("Profile").Where("id = ?", actorId).First(&actor).Error; err != nil {
+			// biarin, nanti handle di bawah
+		}
+	}
+
+	// 2. Query role-based filter
+	switch actorRole {
+	case s.Config.Roles.Surveyor:
+		db = db.Where("user_id = ?", actorId)
+	case s.Config.Roles.VerificatorBalai, s.Config.Roles.AdminBalai:
+		if actor.Profile.ID != 0 {
+			db = db.Joins("JOIN profiles ON profiles.user_id = surveys.user_id").
+				Where("profiles.balai_id = ?", actor.Profile.BalaiID)
+		}
+		// case "public", "superadmin", "verificator_eselon1", "admin_eselon1" → akses semua data, tidak perlu filter khusus
+	}
+
 	// Filtering
 	if address := ctx.Query("address"); address != "" {
 		db = db.Where("address LIKE ?", "%"+address+"%")
