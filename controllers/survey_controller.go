@@ -73,3 +73,7 @@ func (c *SurveyController) GetSurveysByResource(ctx *fiber.Ctx) error {
 func (c *SurveyController) GetSurveysByProgramType(ctx *fiber.Ctx) error {
 	return utils.ToFiberJSON(ctx, c.Survey.GetSurveysByProgramType(ctx))
 }
+
+func (c *SurveyController) GetSurveysByVerificationStatus(ctx *fiber.Ctx) error {
+	return utils.ToFiberJSON(ctx, c.Survey.GetSurveysByVerificationStatus(ctx))
+}
