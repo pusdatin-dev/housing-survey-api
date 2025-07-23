@@ -86,6 +86,15 @@ func ForbiddenResponse(message string) ServiceResponse {
 	}
 }
 
+func UnauthorizedResponse(message string) ServiceResponse {
+	return ServiceResponse{
+		Status:  true,
+		Code:    401,
+		Message: message,
+		Data:    nil,
+	}
+}
+
 type DataListResponse struct {
 	Data       interface{} `json:"data"`  // List of data items
 	Total      int         `json:"total"` // Total number of items across all pages

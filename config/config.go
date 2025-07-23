@@ -4,17 +4,19 @@ import (
 	"housing-survey-api/shared"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
 
 type Config struct {
 	DBConfig
-	DBSeed   bool
-	Roles    RolesConfig
-	Token    string
-	AppRole  string
-	Resource ResourceConfig
+	DBSeed      bool
+	Roles       RolesConfig
+	Token       string
+	AppRole     string
+	Resource    ResourceConfig
+	BannedWords []string
 }
 
 type DBConfig struct {
@@ -33,6 +35,7 @@ type RolesConfig struct {
 	AdminBalai         string
 	VerificatorBalai   string
 	Surveyor           string
+	Public             string
 }
 
 type ResourceConfig struct {
@@ -64,6 +67,7 @@ func LoadConfig() *Config {
 		AdminBalai:         getEnv("ROLE_ADMIN_BALAI", "Admin Balai"),
 		VerificatorBalai:   getEnv("ROLE_VERIFICATOR_BALAI", "Verificator Balai"),
 		Surveyor:           getEnv("ROLE_SURVEYOR", "Surveyor"),
+		Public:             getEnv("ROLE_PUBLIC", "Public"),
 	}
 
 	resConfig := ResourceConfig{
@@ -73,13 +77,20 @@ func LoadConfig() *Config {
 		TagGotongRoyong: getEnv("RESOURCE_GOTONGROYONG", shared.TagGotongRoyong),
 	}
 
+	bannedWordsList := []string{}
+	bannedWords := getEnv("BANNED_WORDS", "")
+	if bannedWords != "" {
+		bannedWordsList = strings.Split(bannedWords, ",")
+	}
+
 	return &Config{
-		DBConfig: dbConfig,
-		DBSeed:   getEnv("DB_SEED", "false") == "true",
-		Roles:    rolesConfig,
-		Token:    getEnv("JWT_SECRET", ""),
-		AppRole:  getEnv("APP_ROLE", "api"),
-		Resource: resConfig,
+		DBConfig:    dbConfig,
+		DBSeed:      getEnv("DB_SEED", "false") == "true",
+		Roles:       rolesConfig,
+		Token:       getEnv("JWT_SECRET", ""),
+		AppRole:     getEnv("APP_ROLE", "api"),
+		Resource:    resConfig,
+		BannedWords: bannedWordsList,
 	}
 }
 

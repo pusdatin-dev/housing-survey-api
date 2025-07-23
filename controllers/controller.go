@@ -27,7 +27,7 @@ func InitControllers(appCtx *context.AppContext) *ControllerRegistry {
 		Comment:     &CommentController{Comment: services.NewCommentService(appCtx)},
 		AuditLog:    &AuditLogController{AuditLog: services.NewAuditLogService(appCtx)},
 		Survey:      &SurveyController{Survey: services.NewSurveyService(appCtx)},
-		Auth:        &AuthController{Db: appCtx.DB, Config: appCtx.Config},
+		Auth:        &AuthController{Service: services.NewAuthService(appCtx)},
 		User:        &UserController{User: services.NewUserService(appCtx)},
 		Balai:       &BalaiController{Service: services.NewBalaiService(appCtx)},
 		District:    &DistrictController{Service: services.NewDistrictService(appCtx)},

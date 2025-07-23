@@ -8,6 +8,9 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
+
+	"housing-survey-api/models"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
@@ -159,4 +162,38 @@ func getClaimInt(c *fiber.Ctx, key string) (int, error) {
 func IsAuthenticated(c *fiber.Ctx) bool {
 	_, err := GetClaims(c)
 	return err == nil
+}
+
+// GenerateJWT generates a signed JWT token using user info and config secret
+func GenerateJWT(user models.User, secret string) (string, error) {
+	claims := jwt.MapClaims{
+		"user_id":    fmt.Sprint(user.ID),
+		"role_id":    user.RoleID,
+		"role_name":  user.Role.Name,
+		"user_email": user.Email,
+		"user_name":  user.Profile.Name,
+		"exp":        time.Now().Add(72 * time.Hour).Unix(),
+		"start":      time.Now().Unix(),
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString([]byte(secret))
+}
+
+// ParseJWT parses the token string and returns claims
+func ParseJWT(tokenStr string, tokenSecret string) (jwt.MapClaims, error) {
+	token, err := jwt.Parse(tokenStr, func(t *jwt.Token) (interface{}, error) {
+		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
+		}
+		return []byte(tokenSecret), nil
+	})
+	if err != nil || !token.Valid {
+		return nil, errors.New("invalid or expired token")
+	}
+
+	if claims, ok := token.Claims.(jwt.MapClaims); ok {
+		return claims, nil
+	}
+	return nil, errors.New("failed to parse claims")
 }
