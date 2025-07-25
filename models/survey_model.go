@@ -56,41 +56,41 @@ type Survey struct {
 }
 
 type SurveyResponse struct {
-	ID                uint           `json:"id"`
-	UserID            uint           `json:"user_id"`
-	UserEmail         string         `json:"user_email"`
-	Name              string         `json:"survey_name"`
-	Address           string         `json:"address"`
-	Type              string         `json:"type"`
-	MbrStatus         string         `json:"mbr_status"`
-	Year              uint           `json:"year"`
-	UnitTarget        uint           `json:"unit_target"`
-	StatusRealization string         `json:"status_realization"`
-	YearRealization   uint           `json:"year_realization"`
-	MonthRealization  uint           `json:"month_realization"`
-	ProgramTypeID     uint           `json:"program_type_id"`
-	ProgramTypeName   string         `json:"program_type_name"`
-	ResourceID        uint           `json:"resource_id"`
-	ResourceName      string         `json:"resource_name"`
-	ProgramID         uint           `json:"program_id"`
-	ProgramName       string         `json:"program_name"`
-	Budget            uint64         `json:"budget"`
-	Coordinate        string         `json:"coordinate"` // lat,lng string or GeoJSON
-	Status            string         `json:"status"`
-	StatusBalai       string         `json:"status_balai"`
-	StatusEselon1     string         `json:"status_eselon1"`
-	IsSubmitted       bool           `json:"is_submitted"` // default false
-	Notes             string         `json:"notes"`
-	ImagesBefore      pq.StringArray `json:"images_before"`
-	ImagesAfter       pq.StringArray `json:"images_after"`
-	ProvinceID        uint           `json:"province_id"`
-	ProvinceName      string         `json:"province_name"`
-	DistrictID        uint           `json:"district_id"`
-	DistrictName      string         `json:"district_name"`
-	SubdistrictID     uint           `json:"subdistrict_id"`
-	SubdistrictName   string         `json:"subdistrict_name"`
-	VillageID         uint           `json:"village_id"`
-	VillageName       string         `json:"village_name"`
+	ID                uint   `json:"id"`
+	UserID            uint   `json:"user_id"`
+	UserEmail         string `json:"user_email"`
+	Name              string `json:"survey_name"`
+	Address           string `json:"address"`
+	Type              string `json:"type"`
+	MbrStatus         string `json:"mbr_status"`
+	Year              uint   `json:"year"`
+	UnitTarget        uint   `json:"unit_target"`
+	StatusRealization string `json:"status_realization"`
+	YearRealization   uint   `json:"year_realization"`
+	MonthRealization  uint   `json:"month_realization"`
+	ProgramTypeID     uint   `json:"program_type_id"`
+	ProgramTypeName   string `json:"program_type_name"`
+	ResourceID        uint   `json:"resource_id"`
+	ResourceName      string `json:"resource_name"`
+	ProgramID         uint   `json:"program_id"`
+	ProgramName       string `json:"program_name"`
+	Budget            uint64 `json:"budget"`
+	Coordinate        string `json:"coordinate"` // lat,lng string or GeoJSON
+	Status            string `json:"status"`
+	StatusBalai       string `json:"status_balai"`
+	// StatusEselon1     string         `json:"status_eselon1"`
+	IsSubmitted     bool           `json:"is_submitted"` // default false
+	Notes           string         `json:"notes"`
+	ImagesBefore    pq.StringArray `json:"images_before"`
+	ImagesAfter     pq.StringArray `json:"images_after"`
+	ProvinceID      uint           `json:"province_id"`
+	ProvinceName    string         `json:"province_name"`
+	DistrictID      uint           `json:"district_id"`
+	DistrictName    string         `json:"district_name"`
+	SubdistrictID   uint           `json:"subdistrict_id"`
+	SubdistrictName string         `json:"subdistrict_name"`
+	VillageID       uint           `json:"village_id"`
+	VillageName     string         `json:"village_name"`
 }
 
 func (s *Survey) Update(newSurvey *Survey) {
@@ -177,18 +177,18 @@ func (s *Survey) ToResponse() SurveyResponse {
 		IsSubmitted:       s.IsSubmitted,
 		Status:            s.GetStatusSurvey(),
 		StatusBalai:       s.StatusBalai,
-		StatusEselon1:     s.StatusEselon1,
-		Notes:             s.Notes,
-		ImagesBefore:      s.ImagesBefore,
-		ImagesAfter:       s.ImagesAfter,
-		ProvinceID:        s.ProvinceID,
-		ProvinceName:      s.Province.Name,
-		DistrictID:        s.DistrictID,
-		DistrictName:      s.District.Name,
-		SubdistrictID:     s.SubdistrictID,
-		SubdistrictName:   s.Subdistrict.Name,
-		VillageID:         s.VillageID,
-		VillageName:       s.Village.Name,
+		// StatusEselon1:     s.StatusEselon1,
+		Notes:           s.Notes,
+		ImagesBefore:    s.ImagesBefore,
+		ImagesAfter:     s.ImagesAfter,
+		ProvinceID:      s.ProvinceID,
+		ProvinceName:    s.Province.Name,
+		DistrictID:      s.DistrictID,
+		DistrictName:    s.District.Name,
+		SubdistrictID:   s.SubdistrictID,
+		SubdistrictName: s.Subdistrict.Name,
+		VillageID:       s.VillageID,
+		VillageName:     s.Village.Name,
 	}
 }
 
@@ -196,20 +196,14 @@ func (s *Survey) GetStatusSurvey() string {
 	if !s.IsSubmitted {
 		return shared.StatusDraft
 	}
-	if s.StatusBalai == shared.Pending && s.StatusEselon1 == shared.Pending {
-		return shared.StatusWaitingBalai
+	if s.StatusBalai == shared.Pending {
+		return shared.StatusWaiting
 	}
-	if s.StatusBalai == shared.Approved && s.StatusEselon1 == shared.Pending {
-		return shared.StatusWaitingEselon1
-	}
-	if s.StatusBalai == shared.Approved && s.StatusEselon1 == shared.Approved {
+	if s.StatusBalai == shared.Approved {
 		return shared.StatusVerified
 	}
 	if s.StatusBalai == shared.Rejected {
-		return shared.StatusRejectedBalai
-	}
-	if s.StatusEselon1 == shared.Rejected {
-		return shared.StatusRejectedEselon1
+		return shared.StatusRejected
 	}
 	return "unknown"
 }
@@ -321,10 +315,10 @@ func (s *SurveyInput) Validate() error {
 }
 
 type SurveyActionInput struct {
-	SurveyIDs []string `json:"survey_ids" validate:"required"`
-	Action    string   `json:"action" validate:"required,oneof=Approved Rejected"`
-	Notes     string   `json:"notes" validation:"required_if=Action Rejected"` // Notes for rejection
-	Actor     string   `json:"-"`                                              // Actor who performs the action
+	SurveyIDs []uint `json:"survey_ids" validate:"required"`
+	Action    string `json:"action" validate:"required,oneof=Approved Rejected"`
+	Notes     string `json:"notes" validation:"required_if=Action Rejected"` // Notes for rejection
+	Actor     string `json:"-"`                                              // Actor who performs the action
 }
 
 func (s *SurveyActionInput) Validate() error {
