@@ -41,44 +41,52 @@ func NewSurveyService(ctx *context.AppContext) SurveyService {
 }
 
 func (s *surveyService) GetAllSurveys(ctx *fiber.Ctx) models.ServiceResponse {
+	action := "GET ALL SURVEYS"
 	var surveys []models.Survey
 	db := s.Db.Model(&models.Survey{})
 
-	// 1. Ambil role & user id (fallback ke "public" kalau ga login)
+	// 🔐 Ambil role & user ID dari JWT (fallback ke public jika gagal)
 	actorRole := "public"
 	actorId := uint(0)
 	var actor models.User
 
-	// Coba ambil dari JWT context, kalau gagal role public
+	// 🔍 Ambil role user
 	if role, err := utils.GetRoleNameFromContext(ctx); err == nil {
 		actorRole = role
 	}
+	// 🔍 Ambil id user
 	if id, err := utils.GetUserIDFromContext(ctx); err == nil {
 		actorId = uint(id)
 		// Kalau user login, ambil sekalian profile-nya
 		if err := s.Db.Preload("Profile").Where("id = ?", actorId).First(&actor).Error; err != nil {
-			// biarin, nanti handle di bawah
 		}
 	}
 
-	// 2. Query role-based filter
+	// 🔐 Role-based filtering
 	switch actorRole {
 	case s.Config.Roles.Surveyor:
+		// 👤 Surveyor hanya bisa lihat survei miliknya
 		db = db.Where("user_id = ?", actorId)
 	case s.Config.Roles.VerificatorBalai, s.Config.Roles.AdminBalai:
+		// 🏢 Verifikator/Admin Balai hanya lihat survei di balainya
 		if actor.Profile.ID != 0 {
 			db = db.Joins("JOIN profiles ON profiles.user_id = surveys.user_id").
 				Where("profiles.balai_id = ?", actor.Profile.BalaiID)
 		}
-		// case "public", "superadmin", "verificator_eselon1", "admin_eselon1" → akses semua data, tidak perlu filter khusus
+	case s.Config.Roles.SuperAdmin:
+		// 👑 SuperAdmin bebas akses semua data — tanpa filter
+		// Do nothing
 	}
 
-	// Filtering
+	// 🔍 Filter dinamis dari query string
 	if address := ctx.Query("address"); address != "" {
 		db = db.Where("address LIKE ?", "%"+address+"%")
 	}
+	// 🚫 Filter user_id hanya untuk role non-surveyor (biar gak bisa iseng inject)
 	if userId := ctx.Query("user_id"); userId != "" {
-		db = db.Where("user_id = ?", userId)
+		if actorRole == s.Config.Roles.AdminEselon1 || actorRole == s.Config.Roles.SuperAdmin {
+			db = db.Where("user_id = ?", userId)
+		}
 	}
 	if types := ctx.Query("types"); types != "" {
 		// Assuming types is a comma-separated list of survey types
@@ -137,7 +145,7 @@ func (s *surveyService) GetAllSurveys(ctx *fiber.Ctx) models.ServiceResponse {
 		}
 	}
 
-	// Pagination
+	// 📄 Pagination
 	page, err := strconv.Atoi(ctx.Query("page", "1"))
 	if err != nil || page < 1 {
 		page = 1
@@ -148,14 +156,13 @@ func (s *surveyService) GetAllSurveys(ctx *fiber.Ctx) models.ServiceResponse {
 	}
 	offset := (page - 1) * limit
 
-	// Count total results
+	// 🔢 Hitung total data
 	var total int64
 	if err := db.Count(&total).Error; err != nil {
 		return models.InternalServerErrorResponse("Failed to count surveys")
 	}
-	fmt.Println(db.ToSQL(func(tx *gorm.DB) *gorm.DB {
-		return tx.Preload("User").Limit(limit).Offset(offset).Order("created_at desc").Find(&surveys)
-	}))
+
+	// 📦 Ambil data dengan preload relasi
 	if err := db.Preload("User").
 		Preload("ProgramType").Preload("Resource").Preload("Program").
 		Preload("Province").Preload("District").Preload("Subdistrict").Preload("Village").
@@ -163,17 +170,24 @@ func (s *surveyService) GetAllSurveys(ctx *fiber.Ctx) models.ServiceResponse {
 		Find(&surveys).Error; err != nil {
 		return models.InternalServerErrorResponse("Failed to retrieve surveys")
 	}
-	// Return with metadata
+
+	// 📝 Audit log
+	utils.LogAudit(ctx, action, "Success")
+
+	// ✅ Return data + metadata paginasi
 	return models.OkResponse(fiber.StatusOK, "Survey retrieved successfully", fiber.Map{
 		"data":       models.ToSurveyResponse(surveys),
 		"total":      total,
 		"page":       page,
 		"limit":      limit,
 		"totalPages": int((total + int64(limit) - 1) / int64(limit)), // ceiling division
+		"roleid":     actorRole,
+		"userid":     actorId,
 	})
 }
 
 func (s *surveyService) GetSurveyDetail(ctx *fiber.Ctx, id string) models.ServiceResponse {
+	action := "GET_SURVEY_DETAIL"
 	var survey models.Survey
 	if err := s.Db.Preload("User").
 		Preload("ProgramType").Preload("Resource").Preload("Program").
@@ -184,10 +198,13 @@ func (s *surveyService) GetSurveyDetail(ctx *fiber.Ctx, id string) models.Servic
 	if &survey == nil {
 		return models.NotFoundResponse("Survey not found")
 	}
+	// 8. Log sukses & return response
+	utils.LogAudit(ctx, action, "Success")
 	return models.OkResponse(fiber.StatusOK, "Survey retrieved successfully", survey.ToResponse())
 }
 
 func (s *surveyService) CreateSurvey(ctx *fiber.Ctx, input models.SurveyInput) models.ServiceResponse {
+	action := "CREATE_SURVEY"
 	//enforcing role surveyor only will be in middleware
 	// Convert input to model
 	if err := input.Validate(); err != nil {
@@ -209,23 +226,27 @@ func (s *surveyService) CreateSurvey(ctx *fiber.Ctx, input models.SurveyInput) m
 		utils.LogAudit(ctx, "CREATE_SURVEY", err.Error())
 		return models.InternalServerErrorResponse("Failed to create survey")
 	}
-
+	// 8. Log sukses & return response
+	utils.LogAudit(ctx, action, "Success")
 	return models.OkResponse(fiber.StatusCreated, "Survey created successfully", survey.ToResponse())
 }
 
 func (s *surveyService) UpdateSurvey(ctx *fiber.Ctx, survey models.SurveyInput) models.ServiceResponse {
-	//enforcing role surveyor only will be in middleware
-	//newSurvey := survey.ToSurvey()
-	oldSurvey := models.Survey{}
+	action := "UPDATE_SURVEY"
 
+	// 🔐 Ambil user ID dari token JWT
 	userID, err := utils.GetUserIDFromContext(ctx)
 	if err != nil {
 		return models.InternalServerErrorResponse("Cannot find UserID in token")
 	}
 
+	// 🚫 Cegah user mengubah survei milik user lain
 	if userID != int(survey.UserID) {
 		return models.BadRequestResponse("Cannot update survey for another user")
 	}
+
+	// 🔍 Ambil data survei lama dari database (yang belum dihapus)
+	oldSurvey := models.Survey{}
 
 	if err := s.Db.Where("id = ? AND deleted_at IS NULL", survey.ID).First(&oldSurvey).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -234,21 +255,40 @@ func (s *surveyService) UpdateSurvey(ctx *fiber.Ctx, survey models.SurveyInput) 
 		return models.InternalServerErrorResponse("Failed to retrieve survey for update")
 	}
 
-	// Insert into DB
+	// 🚫 Cek apakah survey ditolak oleh Balai
+	if oldSurvey.StatusBalai == shared.Rejected {
+		return models.ForbiddenResponse("Rejected survey can not be updated")
+	}
+
+	// 🔁 Mapping input ke model survei (hanya field yang boleh diubah)
 	oldSurvey.UpdateFromInput(survey)
+
+	// ✍️ Tambahkan informasi audit: siapa yang update & kapan
+	oldSurvey.UpdatedBy = fmt.Sprint(userID)
+	oldSurvey.UpdatedAt = time.Now() // gunakan pointer karena tipe UpdatedAt-nya *time.Time
+
+	// 💾 Simpan perubahan ke database (gunakan .Updates agar aman)
 	if err := s.Db.Save(&oldSurvey).Error; err != nil {
 		return models.InternalServerErrorResponse("Failed to update survey")
 	}
 
+	// 📝 Catat ke audit log
+	utils.LogAudit(ctx, action, "Success")
+
+	// ✅ Berhasil: kembalikan respon OK dan data survei terbaru
 	return models.OkResponse(fiber.StatusCreated, "Survey created successfully", oldSurvey.ToResponse())
 }
 
 func (s *surveyService) DeleteSurvey(ctx *fiber.Ctx, id string) models.ServiceResponse {
+	action := "DELETE_SURVEY"
+
+	// 🔐 Ambil user ID dari token JWT
 	userID, err := utils.GetUserIDFromContext(ctx)
 	if err != nil {
 		return models.InternalServerErrorResponse("Cannot find UserID in token")
 	}
 
+	// 🔍 Ambil survei berdasarkan ID, pastikan belum dihapus
 	var survey models.Survey
 	if err = s.Db.Where("id = ? AND deleted_at IS NULL", id).First(&survey).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -257,10 +297,17 @@ func (s *surveyService) DeleteSurvey(ctx *fiber.Ctx, id string) models.ServiceRe
 		return models.InternalServerErrorResponse(fmt.Sprintf("Failed to retrieve survey with id %s", id))
 	}
 
+	// 🚫 Cegah user menghapus survei milik orang lain
 	if userID != int(survey.UserID) {
 		return models.BadRequestResponse("Cannot delete survey for another user")
 	}
 
+	// 🔒 Cegah penghapusan jika survei sudah disubmit
+	if survey.IsSubmitted {
+		return models.ForbiddenResponse("Survei sudah disubmit dan tidak dapat dihapus")
+	}
+
+	// 🗑️ Tandai survei sebagai dihapus (soft delete)
 	survey.DeletedBy = fmt.Sprint(userID)
 	survey.DeletedAt = gorm.DeletedAt{
 		Time:  time.Now(),
@@ -270,65 +317,117 @@ func (s *surveyService) DeleteSurvey(ctx *fiber.Ctx, id string) models.ServiceRe
 		return models.InternalServerErrorResponse(fmt.Sprintf("Failed to delete survey with id %s", id))
 	}
 
+	// 📝 Catat aksi penghapusan ke audit log
+	utils.LogAudit(ctx, action, "Success")
+
+	// ✅ Berhasil
 	return models.OkResponse(200, "Survey deleted successfully", nil)
 }
 
 func (s *surveyService) ActionSurvey(ctx *fiber.Ctx, input models.SurveyActionInput) models.ServiceResponse {
+	action := "ACTION_SURVEY"
+
+	// ✅ Validasi input dari request body
 	if err := input.Validate(); err != nil {
 		return models.BadRequestResponse(err.Error())
 	}
 
+	// 🔐 Ambil role & user ID dari JWT
 	role, err := utils.GetRoleNameFromContext(ctx)
 	if err != nil {
-		return models.InternalServerErrorResponse("Cannot determine role")
+		return models.InternalServerErrorResponse("Gagal menentukan role user")
+	}
+	userID, err := utils.GetUserIDFromContext(ctx)
+	if err != nil {
+		return models.InternalServerErrorResponse("Gagal mengambil User ID dari token")
 	}
 
 	isVerificatorBalai := role == s.Config.Roles.VerificatorBalai
 	isVerificatorEselon1 := role == s.Config.Roles.VerificatorEselon1
 
+	// 🚫 Cegah jika user bukan verifikator
 	if !isVerificatorBalai && !isVerificatorEselon1 {
-		return models.ForbiddenResponse("You are not allowed to perform this action")
+		return models.ForbiddenResponse("Kamu tidak memiliki izin untuk melakukan aksi ini")
 	}
 
-	// Base query
-	db := s.Db.Model(&models.Survey{}).
+	// 🏢 Ambil balai_id verifikator (jika role adalah verifikator balai)
+	var allowedBalaiID uint
+	if isVerificatorBalai {
+		var profile models.Profile
+		if err := s.Db.Where("user_id = ?", userID).First(&profile).Error; err != nil {
+			return models.InternalServerErrorResponse("Gagal mengambil profil user")
+		}
+		if profile.BalaiID == nil {
+			return models.ForbiddenResponse("User belum terdaftar ke dalam balai manapun")
+		}
+		allowedBalaiID = *profile.BalaiID
+	}
+
+	// 🔍 Ambil semua survei yang akan diproses, preload relasi user dan profil
+	var surveys []models.Survey
+	if err := s.Db.Preload("User.Profile").
 		Where("id IN ?", input.SurveyIDs).
-		Where("is_submitted = ? AND deleted_at IS NULL", true)
-
-	// Filter based on role
-	if isVerificatorBalai {
-		db = db.Where("status_balai = ?", shared.Pending)
-	} else if isVerificatorEselon1 {
-		db = db.Where("status_balai = ? AND status_eselon1 = ?", shared.Approved, shared.Pending)
+		Where("is_submitted = ? AND deleted_at IS NULL", true).
+		Find(&surveys).Error; err != nil {
+		return models.InternalServerErrorResponse("Gagal mengambil data survei")
 	}
 
-	// Prepare update map
-	update := map[string]interface{}{}
-	if input.Action == shared.Rejected {
-		update["notes"] = input.Notes
-	}
-	if isVerificatorBalai {
-		update["status_balai"] = input.Action
-	} else {
-		update["status_eselon1"] = input.Action
+	successCount := int64(0)
+	failedDetails := []string{}
+
+	for _, survey := range surveys {
+		// 📋 Validasi status & balai berdasarkan role
+		if isVerificatorBalai {
+			if survey.StatusBalai != shared.Pending {
+				failedDetails = append(failedDetails, fmt.Sprintf("Survey %d: status balai bukan pending", survey.ID))
+				continue
+			}
+			if survey.User.Profile.BalaiID == nil || *survey.User.Profile.BalaiID != allowedBalaiID {
+				failedDetails = append(failedDetails, fmt.Sprintf("Survey %d: bukan milik balai anda", survey.ID))
+				continue
+			}
+		} else if isVerificatorEselon1 {
+			if !(survey.StatusBalai == shared.Approved && survey.StatusEselon1 == shared.Pending) {
+				failedDetails = append(failedDetails, fmt.Sprintf("Survey %d: belum disetujui balai atau sudah diverifikasi", survey.ID))
+				continue
+			}
+		}
+
+		// 🛠️ Siapkan field yang akan diupdate
+		update := map[string]interface{}{
+			"updated_by": fmt.Sprint(userID), // 👤 ID verifikator
+			"updated_at": time.Now(),         // ⏰ waktu update
+		}
+		if input.Action == shared.Rejected {
+			update["notes"] = input.Notes // 📝 alasan ditolak
+		}
+		if isVerificatorBalai {
+			update["status_balai"] = input.Action
+		} else {
+			update["status_eselon1"] = input.Action
+		}
+
+		// 💾 Simpan perubahan
+		if err := s.Db.Model(&models.Survey{}).Where("id = ?", survey.ID).Updates(update).Error; err != nil {
+			failedDetails = append(failedDetails, fmt.Sprintf("Survey %d: gagal update", survey.ID))
+			continue
+		}
+
+		successCount++
 	}
 
-	// Perform update in one query
-	result := db.Updates(update)
-	if result.Error != nil {
-		return models.InternalServerErrorResponse("Failed to update surveys")
-	}
+	// 📝 Catat aksi ke audit log
+	utils.LogAudit(ctx, action, "Success")
 
-	// Calculate counts
-	successCount := result.RowsAffected
-	failedCount := int64(len(input.SurveyIDs)) - successCount
-
+	// 📦 Kirim respon ke client
 	return models.OkResponse(fiber.StatusOK, fmt.Sprintf(
-		"%s %d survey(s), %d failed", input.Action, successCount, failedCount,
+		"%s %d survei, %d gagal", input.Action, successCount, len(failedDetails),
 	), fiber.Map{
-		"success_count": successCount,
-		"failed_count":  failedCount,
+		"success_count":  successCount,
+		"failed_count":   len(failedDetails),
+		"failed_details": failedDetails,
 	})
+
 }
 
 func (s *surveyService) GetSurveysByResource(ctx *fiber.Ctx) models.ServiceResponse {
